@@ -12,7 +12,7 @@ import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import DocumentRegister from '@/components/DocumentRegister';
 import DocumentList from '@/components/DocumentList';
 import { queryDocumentsByDAO } from '@/services/documentQueryService';
-import { convertAttestationToDAO, convertAttestationToDocument } from '@/utils/easQuery';
+import { convertAttestationToDAO, convertAttestationToDocument, getFieldFromDecodedData } from '@/utils/easQuery';
 
 interface Props {
   params: {
@@ -52,16 +52,15 @@ export default function DaoManagementPage({ params }: Props) {
     const loadDao = async () => {
       try {
         const allDAOAttestations = await getAllDAOs();
-                 const { getFieldFromDecodedData } = await import('@/utils/easQuery');
-         const targetDaoAttestation = allDAOAttestations.find(att => {
-           // デコードされたデータからdaoUIDを取得して比較
-           try {
-             const daoUID = getFieldFromDecodedData(att.data, 'daoUID');
-             return daoUID === id;
-           } catch {
-             return false;
-           }
-         });
+        const targetDaoAttestation = allDAOAttestations.find(att => {
+          // デコードされたデータからdaoUIDを取得して比較
+          try {
+            const daoUID = getFieldFromDecodedData(att.data, 'daoUID');
+            return daoUID === id;
+          } catch {
+            return false;
+          }
+        });
         
         if (!targetDaoAttestation) {
           router.push('/my-dao');
@@ -69,7 +68,6 @@ export default function DaoManagementPage({ params }: Props) {
         }
         
         // EAS証明書をDAOオブジェクトに変換
-        const { convertAttestationToDAO } = await import('@/utils/easQuery');
         const daoData = await convertAttestationToDAO(targetDaoAttestation as any);
 
         setDao(daoData);
@@ -97,7 +95,6 @@ export default function DaoManagementPage({ params }: Props) {
         const documentAttestations = await getDAODocuments(id);
         
         // EAS証明書をDocumentオブジェクトに変換
-        const { convertAttestationToDocument } = await import('@/utils/easQuery');
         const documentsData = documentAttestations.map(att => 
           convertAttestationToDocument(att as any)
         );
