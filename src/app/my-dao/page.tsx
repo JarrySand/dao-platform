@@ -8,8 +8,7 @@ import { DAO } from '@/types';
 import { convertAttestationToDAO } from '@/utils/easQuery';
 import Link from 'next/link';
 import Image from 'next/image';
-import WalletConnectButton from '@/components/WalletConnectButton';
-import EasStatus from '@/components/EasStatus';
+
 
 export default function MyDaoPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -17,7 +16,7 @@ export default function MyDaoPage() {
   const router = useRouter();
   const [daos, setDaos] = useState<DAO[]>([]);
   const [loading, setLoading] = useState(true);
-  const [debugInfo, setDebugInfo] = useState<string>('');
+
 
   useEffect(() => {
     // 初期化中は何もしない
@@ -36,16 +35,16 @@ export default function MyDaoPage() {
       try {
         console.log('Loading DAOs from EAS...');
         console.log('Current user:', user);
-        setDebugInfo('Loading DAOs from EAS...');
+
         
         const allDAOAttestations = await getAllDAOs();
         console.log('All DAO attestations:', allDAOAttestations);
-        setDebugInfo(`Retrieved ${allDAOAttestations.length} attestations`);
+
         
         const daoPromises = allDAOAttestations.map(att => convertAttestationToDAO(att as any));
         const allDaos = (await Promise.all(daoPromises)).filter(dao => dao !== null) as DAO[];
         console.log('Converted DAOs:', allDaos);
-        setDebugInfo(`Converted ${allDaos.length} DAOs successfully`);
+
         
         // フィルタリングロジック
         let filteredDaos = allDaos;
@@ -88,23 +87,11 @@ export default function MyDaoPage() {
         });
         
         console.log('Filtered DAOs:', filteredDaos);
-        setDebugInfo(`
-          認証状態:
-          - ユーザー: ${user?.name || 'Unknown'}
-          - 認証方式: ${user?.authType}
-          - ウォレットアドレス: ${user?.walletAddress || 'なし'}
-          - メールアドレス: ${user?.email || 'なし'}
-          - 権限: ${user?.role}
-          
-          DAO情報:
-          - 総DAO数: ${allDaos.length}
-          - 表示DAO数: ${filteredDaos.length}
-          - フィルター: ${user?.role === 'admin' ? '管理者（全表示）' : 'ユーザー固有'}
-        `);
+
         setDaos(filteredDaos);
       } catch (error) {
         console.error('Failed to load DAOs from EAS:', error);
-        setDebugInfo(`Error: ${error}`);
+
         // フォールバック: localStorageからも試す（移行期間用）
         try {
           const storedDaos = localStorage.getItem('daos');
@@ -119,11 +106,11 @@ export default function MyDaoPage() {
                   return dao.ownerId === user?.id;
                 });
             setDaos(filteredDaos);
-            setDebugInfo(`Fallback: Loaded ${filteredDaos.length} DAOs from localStorage`);
+
           }
         } catch (fallbackError) {
           console.error('Fallback localStorage load also failed:', fallbackError);
-          setDebugInfo(`Both EAS and localStorage failed`);
+
         }
       } finally {
         setLoading(false);
@@ -154,36 +141,7 @@ export default function MyDaoPage() {
         </Link>
       </div>
 
-      {/* ユーザー情報表示（デバッグ用） */}
-      <div className="bg-gray-100 p-4 rounded-lg mb-6">
-        <h3 className="font-semibold mb-2">現在のユーザー情報:</h3>
-        <pre className="text-sm whitespace-pre-wrap">{debugInfo}</pre>
-      </div>
 
-      {/* ウォレット接続セクション */}
-      <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">ブロックチェーン接続ステータス</h2>
-        <p className="text-gray-600 mb-4">
-          DAOの登録やドキュメントの登録・検証を行うには、暗号資産ウォレット（MetaMask等）との接続が必要です。
-          接続することで、EAS（Ethereum Attestation Service）を通じてブロックチェーン上に文書情報を記録できます。
-        </p>
-        
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <WalletConnectButton />
-          
-          {isConnected && (
-            <div className="px-3 py-1 bg-green-100 text-green-800 rounded-md text-sm">
-              接続済み
-            </div>
-          )}
-        </div>
-        
-        {isConnected && (
-          <div className="mt-4">
-            <EasStatus />
-          </div>
-        )}
-      </div>
 
       <h2 className="text-xl font-semibold mb-4">あなたのDAO</h2>
       

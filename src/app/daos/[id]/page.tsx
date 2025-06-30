@@ -6,8 +6,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import { Document, DocumentType } from '@/types';
-import { calculateFileHash } from '@/utils/fileHash';
-import { FileHashCalculator } from '@/components/FileHashCalculator';
+
 import { useEas } from '@/contexts/EasContext';
 import { convertAttestationToDAO } from '@/utils/easQuery';
 
@@ -29,15 +28,7 @@ export default function DAODetailPage({ params }: DAODetailPageProps) {
   const { getAllDAOs, connect, isConnected } = useEas();
   const [dao, setDao] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<{
-    docId: string;
-    isMatch: boolean;
-    fileHash: string;
-    storedHash: string;
-  } | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
 
   // EASに自動接続
   useEffect(() => {
@@ -175,51 +166,7 @@ export default function DAODetailPage({ params }: DAODetailPageProps) {
     }
   }, [params.id, isConnected, getAllDAOs]);
 
-  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>, docId: string) => {
-    if (!e.target.files || !e.target.files[0]) return;
-    
-    const file = e.target.files[0];
-    setSelectedFile(file);
-    setSelectedDocId(docId);
-    // ファイル選択後すぐに検証プロセスを開始
-    verifyDocument(file, docId);
-  };
 
-  const verifyDocument = async (file: File, docId: string) => {
-    setIsVerifying(true);
-    setVerificationResult(null);
-    
-    try {
-      // ファイルからハッシュを計算
-      const hash = await calculateFileHash(file);
-      const fileHash = `0x${hash}`;
-      
-      // 対象ドキュメントの情報を取得
-      const document = dao.documents?.find((d: any) => d.id === docId);
-      const storedHash = document?.hash || '0x0000000000000000000000000000000000000000000000000000000000000000';
-      
-      // ハッシュを比較
-      const isMatch = fileHash.toLowerCase() === storedHash.toLowerCase();
-      
-      setVerificationResult({
-        docId,
-        isMatch,
-        fileHash,
-        storedHash
-      });
-      
-    } catch (error) {
-      console.error('Error verifying document:', error);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const closeVerification = () => {
-    setVerificationResult(null);
-    setSelectedDocId(null);
-    setSelectedFile(null);
-  };
 
   if (loading || !dao) {
     return (
@@ -376,52 +323,12 @@ export default function DAODetailPage({ params }: DAODetailPageProps) {
         </div>
       </div>
       
-      {/* 検証結果モーダル */}
-      {verificationResult && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-lg w-full p-6">
-            <h3 className="text-xl font-bold mb-4">検証結果</h3>
-            
-            {verificationResult.isMatch ? (
-              <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-4">
-                <p className="text-green-700 font-medium">検証成功 ✓</p>
-                <p className="text-green-600 text-sm mt-1">このファイルは正規のドキュメントです。ハッシュが一致しています。</p>
-              </div>
-            ) : (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-                <p className="text-red-700 font-medium">検証失敗 ✗</p>
-                <p className="text-red-600 text-sm mt-1">このファイルは正規のドキュメントではないか、内容が改ざんされています。</p>
-                
-                <div className="mt-3 space-y-2">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">アップロードしたファイルのハッシュ:</p>
-                    <p className="text-xs font-mono overflow-x-auto break-all">{verificationResult.fileHash}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">ブロックチェーン上のハッシュ:</p>
-                    <p className="text-xs font-mono overflow-x-auto break-all">{verificationResult.storedHash}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="flex justify-end">
-              <button
-                onClick={closeVerification}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                閉じる
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
       
       <div className="mb-8">
         <h2 className="text-2xl font-bold mb-4">定款・規程</h2>
         <p className="text-gray-600 mb-4">
           各ドキュメントのハッシュがブロックチェーンに記録されています。
-          検証ボタンからファイルをアップロードして、ドキュメントの改ざんがないか確認できます。
         </p>
         
         <div className="overflow-x-auto">
@@ -464,20 +371,6 @@ export default function DAODetailPage({ params }: DAODetailPageProps) {
                             ダウンロード
                           </a>
                           
-                          <label
-                            className={`cursor-pointer text-green-600 hover:underline ${
-                              isVerifying && selectedDocId === doc.id ? 'opacity-50 pointer-events-none' : ''
-                            }`}
-                          >
-                            {isVerifying && selectedDocId === doc.id ? '検証中...' : '検証'}
-                            <input
-                              type="file"
-                              className="hidden"
-                              onChange={(e) => handleFileSelection(e, doc.id)}
-                              disabled={isVerifying}
-                            />
-                          </label>
-                          
                           {doc.attestationUID && (
                             <a 
                               href={`https://sepolia.easscan.org/attestation/view/${doc.attestationUID}`}
@@ -499,62 +392,6 @@ export default function DAODetailPage({ params }: DAODetailPageProps) {
               })}
             </tbody>
           </table>
-        </div>
-        
-        {/* デバッグ用: 全ドキュメント表示 */}
-        {dao.documents && dao.documents.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold mb-4">全ドキュメント (デバッグ用)</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-gray-50 border border-gray-200 rounded-lg">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">ID</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">名前</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">タイプ</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">ハッシュ</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">IPFS CID</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">EAS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {dao.documents.map((doc: any) => (
-                    <tr key={doc.id}>
-                      <td className="px-4 py-2 text-xs font-mono">{doc.id.substring(0, 10)}...</td>
-                      <td className="px-4 py-2 text-sm">{doc.name}</td>
-                      <td className="px-4 py-2 text-sm font-mono">{doc.type}</td>
-                      <td className="px-4 py-2 text-xs font-mono">{doc.hash?.substring(0, 10)}...</td>
-                      <td className="px-4 py-2 text-xs font-mono">{doc.ipfsCid?.substring(0, 10)}...</td>
-                      <td className="px-4 py-2">
-                        {doc.attestationUID && (
-                          <a 
-                            href={`https://sepolia.easscan.org/attestation/view/${doc.attestationUID}`}
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline text-xs"
-                            title="EAS Scanで確認"
-                          >
-                            🔗
-                          </a>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold mb-4">ドキュメントハッシュ計算</h2>
-        <p className="text-gray-600 mb-4">
-          お手持ちのファイルのハッシュを計算し、ブロックチェーン上の記録と比較できます。
-        </p>
-        
-        <div className="bg-white border rounded-lg p-6">
-          <FileHashCalculator />
         </div>
       </div>
 

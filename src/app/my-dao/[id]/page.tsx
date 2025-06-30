@@ -71,9 +71,7 @@ export default function DaoManagementPage({ params }: Props) {
         // EAS証明書をDAOオブジェクトに変換
         const { convertAttestationToDAO } = await import('@/utils/easQuery');
         const daoData = await convertAttestationToDAO(targetDaoAttestation as any);
-        console.log('DAO loaded with attestationUID:', daoData?.attestationUID);
-        console.log('Full DAO object:', daoData);
-        alert(`DEBUG: DAO Attestation UID = ${daoData?.attestationUID || 'UNDEFINED'}`);
+
         setDao(daoData);
       } catch (error) {
         console.error('Failed to load DAO from EAS:', error);
@@ -327,15 +325,7 @@ export default function DaoManagementPage({ params }: Props) {
         </nav>
       </div>
 
-      {/* デバッグ情報 - 全タブで表示 */}
-      <div className="mb-4 p-3 bg-yellow-100 rounded text-xs">
-        <p><strong>デバッグ情報:</strong></p>
-        <p>DAO ID: {id}</p>
-        <p>DAO Attestation UID: {dao?.attestationUID || '未設定'}</p>
-        <p>ローカルドキュメント数: {documents.length}</p>
-        <p>ブロックチェーンドキュメント数: {blockchainDocuments.length}</p>
-        <p>DAO内ドキュメント: {dao?.documents?.length || 0}</p>
-      </div>
+
 
       {/* タブコンテンツ */}
       <div className="mt-8">
