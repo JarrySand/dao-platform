@@ -1,36 +1,325 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📋 DAO Document Platform
 
-## Getting Started
+Web3技術を活用したDAOの定款・規程文書管理プラットフォーム
 
-First, run the development server:
+## 🚀 Quick Start
 
 ```bash
+# 依存関係のインストール
+npm install
+
+# 環境変数の設定
+cp env.example .env.local
+# .env.local を編集して必要な値を設定
+
+# 開発サーバー起動
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📚 プロジェクト資料
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 現状把握・課題管理
+- 📊 **[プロジェクト現状報告書](./PROJECT_STATUS.md)** - 実装状況、課題、技術スタックの包括的レポート
+- 🔧 **[技術的負債解決計画](./TECHNICAL_DEBT_RESOLUTION.md)** - 優先度別の改善アクションプラン
+- ⚙️ **[環境変数テンプレート](./env.example)** - 設定ファイルのサンプル
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 設計・実装資料
+- 🔗 **[EAS実装構想](./EAS_IMPLEMENTATION.md)** - Ethereum Attestation Service統合の詳細
+- 📋 **[開発フェーズ](./DEVELOPMENT_PHASES.md)** - 段階的な開発計画
+- 👥 **[ユーザーワークフロー](./USER_WORKFLOWS.md)** - 利用者向けの操作手順
 
-## Learn More
+## 🎯 現在の開発状況
 
-To learn more about Next.js, take a look at the following resources:
+### ✅ 実装完了
+- 基本UI・ナビゲーション
+- 認証システム（開発用）
+- ウォレット接続（MetaMask）
+- DAO登録・一覧機能
+- EAS SDK統合
+- **🎉 最小限スキーマによる高効率ドキュメント登録システム**
+  - スキーマUID: `0xbc9fcde5f231a0df136d1685c8d9c043c857ab7135b0b7ba0fe8c6567bcbc152`
+  - フィールド数: 6（従来の12から50%削減）
+  - ガス効率: ~26%向上
+  - IPFSマルチゲートウェイ対応
+  - プログレス表示付きUI
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 🟡 課題対応中
+- **EAS Scan メンテナンス対応** - GraphQLエンドポイント接続問題
+- **スキーマID統一** - 複数ファイル間でのID不整合
+- **エラーハンドリング強化** - サービス停止時の対応
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### ⏳ 今後の予定
+- 型安全性向上
+- ドキュメント管理機能完成
+- IPFS統合強化
+- テスト実装
 
-## Deploy on Vercel
+> 📝 **最新状況**: [PROJECT_STATUS.md](./PROJECT_STATUS.md) で詳細な進捗を確認できます
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🏗️ 技術スタック
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
+- **Blockchain**: Ethereum (Sepolia), EAS, ethers.js v6
+- **Storage**: IPFS, localStorage
+- **Wallet**: MetaMask
+
+## 🔧 開発環境セットアップ
+
+### 前提条件
+- Node.js 18+
+- MetaMaskウォレット
+- Sepolia testnet ETH
+
+### 詳細設定
+1. **環境変数設定**:
+   ```bash
+   cp env.example .env.local
+   # 必要な値を編集
+   ```
+
+2. **ウォレット設定**:
+   - Sepoliaテストネットを追加
+   - [Sepolia Faucet](https://sepoliafaucet.com/) でテストETHを取得
+
+3. **開発開始**:
+   ```bash
+   npm run dev
+   ```
+
+## 🐛 現在の既知の問題
+
+### EAS Scan メンテナンス
+- **問題**: GraphQLエンドポイントへのアクセス不可
+- **影響**: DAO一覧の取得・表示ができない
+- **対応**: メンテナンス終了待ち（短期間予定）
+
+### スキーマID不整合
+- **問題**: 複数ファイルで異なるスキーマIDを使用
+- **対応**: 環境変数での統一管理実装予定
+
+> 🔍 **詳細**: [TECHNICAL_DEBT_RESOLUTION.md](./TECHNICAL_DEBT_RESOLUTION.md) で解決計画を確認
+
+## 📞 サポート・コントリビューション
+
+### 問題報告
+- Issueテンプレートを使用してバグ報告
+- 再現手順の詳細記載をお願いします
+
+### 開発参加
+- [技術的負債解決計画](./TECHNICAL_DEBT_RESOLUTION.md) で優先度を確認
+- コーディング標準とレビュープロセスに従ってください
+
+---
+
+## 📝 更新履歴
+
+- **2024/12**: プロジェクト現状整理、資料体系化
+- **2024/12**: EAS統合、基本機能実装
+- **2024/11**: プロジェクト開始、初期設定
+
+# DAO Document Platform
+
+DAO（分散型自律組織）のドキュメント管理プラットフォームです。Next.js、TypeScript、Tailwind CSSを使用して構築されています。
+
+## 🎯 問題意識と目的
+
+### 背景
+法人型のDAOにおいて、スマートコントラクトと定款や規程を組み合わせることで、実社会で実行力のある執行が可能になります。この実現のためには、DAOの定款や規程はスマートコントラクトに近い性質を持つべきであると考えています。
+
+### 重要な性質
+1. **透明性と公開性**
+   - ルールはパブリックチェーンにおけるコードと同様に一般公開されているべき
+   - 各DAOの定款や規程を誰でも閲覧可能なプラットフォームを提供
+
+2. **不変性と改変防止**
+   - ルールは無断で改変されてはならない
+   - 定款や規程のハッシュ情報をブロックチェーン上に記録
+   - 改変の検知と防止メカニズムの実装
+
+### 目的
+- DAOの定款や規程の一元管理プラットフォームの提供
+- ブロックチェーン技術を活用した文書の真正性保証
+- 透明性と不変性を担保したDAO運営の実現
+- 実社会での法的執行力を持つDAO運営のサポート
+
+## 🚀 主な機能
+
+### 1. 一般ユーザー向け機能
+- DAO一覧の閲覧
+- DAO詳細情報の確認
+- キーワード検索
+- 所在地・規模によるフィルタリング
+
+### 2. 認証機能
+- メールアドレス認証
+- ログイン/ログアウト
+- パスワードリセット
+
+### 3. 管理者向け機能
+- DAO管理
+  - 基本情報の編集
+  - ドキュメント管理
+  - バージョン管理
+  - GitHubリンク管理
+- ドキュメント管理
+  - 新規追加
+  - 編集
+  - 削除
+
+### 4. サインアップ機能
+- 新規DAO登録
+- ユーザー（DAO管理者）作成
+- バリデーション機能
+
+## 🛠 技術スタック
+
+- **フレームワーク**: Next.js 14.1.3
+- **言語**: TypeScript
+- **スタイリング**: Tailwind CSS
+- **状態管理**: React Context
+- **データ永続化**: ローカルストレージ
+
+## 🚀 開発環境のセットアップ
+
+1. リポジトリのクローン
+```bash
+git clone [repository-url]
+cd dao-platform
+```
+
+2. 依存関係のインストール
+```bash
+npm install
+```
+
+3. 開発サーバーの起動
+```bash
+npm run dev
+```
+
+4. ブラウザでアクセス
+```
+http://localhost:3000
+```
+
+## 📝 今後の開発予定
+
+1. EAS（Ethereum Attestation Service）連携
+2. セキュリティ強化
+   - メール認証システム
+   - 管理者承認フロー
+   - ソーシャルログイン
+3. UI/UXの改善
+4. テストの実装
+5. デプロイ準備
+
+## 📁 プロジェクト構造
+
+```
+src/
+├── app/          # Next.js アプリケーションルート
+├── components/   # 再利用可能なコンポーネント
+├── contexts/     # React Context
+├── data/         # データモデルとモックデータ
+├── types/        # TypeScript型定義
+├── utils/        # ユーティリティ関数
+└── styles/       # スタイル関連ファイル
+```
+
+## 🤝 コントリビューション
+
+1. このリポジトリをフォーク
+2. 新しいブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
+4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
+5. プルリクエストを作成
+
+## 📄 ライセンス
+
+このプロジェクトは[MITライセンス](LICENSE)の下で公開されています。
+
+## 🛠 技術的な実装方針
+
+### 1. 文書の真正性保証
+- **Ethereum Attestation Service (EAS) の活用**
+  - 定款・規程のハッシュ値をブロックチェーン上に記録
+  - 改変の検知と真正性の証明
+  - オンチェーンでの検証機能の提供
+
+### 2. データ構造
+- **文書のバージョン管理**
+  - 各文書の改訂履歴の保持
+  - ハッシュ値の時系列管理
+  - 変更内容の差分表示
+
+- **メタデータの管理**
+  - 文書の作成日時
+  - 最終更新日時
+  - 作成者・更新者の情報
+  - 関連するスマートコントラクトのアドレス
+
+### 3. セキュリティ設計
+- **アクセス制御**
+  - 文書の閲覧権限管理
+  - 編集権限の厳格な管理
+  - 管理者の多要素認証
+
+- **改変防止メカニズム**
+  - 文書のハッシュ値計算
+  - ブロックチェーン上での記録
+  - 定期的な真正性検証
+
+### 4. ユーザビリティ
+- **直感的なインターフェース**
+  - 文書のアップロード・編集フロー
+  - バージョン履歴の閲覧
+  - 検索・フィルタリング機能
+
+- **統合的な管理**
+  - DAOごとの文書管理
+  - 関連文書のグループ化
+  - 一括操作機能
+
+## 🔗 外部サービスとの連携
+
+### 1. Ethereum Attestation Service
+- 文書の真正性証明
+- 改変履歴の追跡
+- オンチェーン検証
+
+### 2. GitHub
+- 文書のバージョン管理
+- 変更履歴の追跡
+- コラボレーション機能
+
+### 3. メールサービス
+- 認証システム
+- 通知機能
+- パスワードリセット
+
+## 認証システム
+
+### 現在の実装（ハイブリッド認証）
+
+1. **ウォレット認証**（メイン）
+   - MetaMask等のWeb3ウォレットによる認証
+   - DAO作成・管理の主要認証方式
+   - EAS（Ethereum Attestation Service）との連携
+
+2. **メールアドレス認証**（サブ）
+   - 従来のメール/パスワード認証
+   - 管理者権限の管理
+   - 将来の機能拡張のための基盤
+
+### 認証の優先順位
+
+- **DAO管理**: ウォレットアドレス > ユーザーID
+- **管理者機能**: メールアドレス認証による権限管理
+- **アクセス制御**: いずれかの認証方式でアクセス可能
+
+### 将来の拡張計画
+
+- KYC（本人確認）機能
+- メール通知機能
+- より細かい権限管理
+- マルチシグ対応
