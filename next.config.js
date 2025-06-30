@@ -88,7 +88,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data:",
-              "connect-src 'self' https://sepolia.easscan.org https://gateway.pinata.cloud https://*.firebase.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com",
+              "connect-src 'self' https://sepolia.easscan.org https://api.pinata.cloud https://gateway.pinata.cloud https://*.firebase.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com",
               "media-src 'self'",
               "object-src 'none'",
               "base-uri 'self'",

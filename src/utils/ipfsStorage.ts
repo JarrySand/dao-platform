@@ -19,6 +19,16 @@ const uploadViaNFTStorage = async (file: File): Promise<{ ipfsCid: string; ipfsG
  * Pinataを使用してファイルをIPFSにアップロードする
  */
 const uploadViaPinata = async (file: File): Promise<{ ipfsCid: string; ipfsGateway: string; }> => {
+  // デバッグ: 環境変数の状態を確認
+  console.log('🔍 Pinata環境変数デバッグ:', {
+    hasJWT: !!PINATA_JWT,
+    hasAPIKey: !!PINATA_API_KEY,
+    hasSecretKey: !!PINATA_SECRET_KEY,
+    jwtLength: PINATA_JWT.length,
+    apiKeyPrefix: PINATA_API_KEY.substring(0, 8) + '...',
+    secretKeyPrefix: PINATA_SECRET_KEY.substring(0, 8) + '...'
+  });
+
   if (!PINATA_JWT && (!PINATA_API_KEY || !PINATA_SECRET_KEY)) {
     throw new Error('Pinata認証情報が設定されていません。環境変数 NEXT_PUBLIC_PINATA_JWT または NEXT_PUBLIC_PINATA_API_KEY/NEXT_PUBLIC_PINATA_SECRET_KEY を設定してください。');
   }
@@ -42,6 +52,27 @@ const uploadViaPinata = async (file: File): Promise<{ ipfsCid: string; ipfsGatew
   });
   formData.append('pinataMetadata', pinataMetadata);
 
+  // デバッグ: リクエストヘッダー情報
+  const headers: any = {};
+  if (PINATA_JWT) {
+    headers['Authorization'] = `Bearer ${PINATA_JWT.substring(0, 20)}...`;
+  }
+  if (PINATA_API_KEY && PINATA_SECRET_KEY) {
+    headers['pinata_api_key'] = PINATA_API_KEY;
+    headers['pinata_secret_api_key'] = PINATA_SECRET_KEY.substring(0, 8) + '...';
+  }
+
+  console.log('📤 Pinata APIリクエスト詳細:', {
+    url: 'https://api.pinata.cloud/pinning/pinFileToIPFS',
+    method: 'POST',
+    headers: headers,
+    fileInfo: {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    }
+  });
+
   try {
     console.log('📌 Pinataを使用してIPFSアップロード中...', {
       fileName: file.name,
@@ -61,9 +92,20 @@ const uploadViaPinata = async (file: File): Promise<{ ipfsCid: string; ipfsGatew
       body: formData,
     });
 
+    console.log('📥 Pinata APIレスポンス:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Pinata API error:', errorText);
+      console.error('❌ Pinata API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorText
+      });
       
       // 具体的なエラーメッセージを生成
       let errorMessage = 'Pinata IPFSアップロードに失敗しました。';
@@ -77,7 +119,7 @@ const uploadViaPinata = async (file: File): Promise<{ ipfsCid: string; ipfsGatew
         errorMessage += ` サーバーエラー (${response.status}): ${response.statusText}`;
       }
       
-      throw new Error(errorMessage);
+      throw new Error(`${errorMessage}\n詳細: ${errorText}`);
     }
 
     const result = await response.json();
@@ -89,6 +131,12 @@ const uploadViaPinata = async (file: File): Promise<{ ipfsCid: string; ipfsGatew
     };
   } catch (error) {
     console.error('❌ Pinata upload failed:', error);
+    
+    // ネットワークエラーの詳細確認
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('ネットワーク接続エラー: Pinata APIにアクセスできません。インターネット接続を確認してください。');
+    }
+    
     throw error;
   }
 };
