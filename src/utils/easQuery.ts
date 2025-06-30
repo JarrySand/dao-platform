@@ -4,6 +4,7 @@ import { GLOBAL_SCHEMA_UIDS } from './easSchema';
 
 // Sepolia testnet EAS GraphQL endpoint
 const EAS_GRAPHQL_ENDPOINT = 'https://sepolia.easscan.org/graphql';
+const EAS_PROXY_ENDPOINT = '/api/eas-proxy';
 
 interface GraphQLResponse<T> {
   data: T;
@@ -27,7 +28,14 @@ interface AttestationsResponse {
 
 // GraphQL クエリを実行する汎用関数
 async function executeGraphQLQuery<T>(query: string, variables?: any): Promise<T> {
+  console.log('🔍 EAS GraphQL Query:', {
+    query: query.substring(0, 200) + '...',
+    variables
+  });
+
+  // まず直接のエンドポイントを試す
   try {
+    console.log('🔍 Trying direct EAS GraphQL endpoint...');
     const response = await fetch(EAS_GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -39,20 +47,61 @@ async function executeGraphQLQuery<T>(query: string, variables?: any): Promise<T
       }),
     });
 
+    console.log('🔍 Direct EAS GraphQL Response Status:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`GraphQL request failed: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('🔍 Direct EAS GraphQL Error Response:', errorText);
+      throw new Error(`Direct GraphQL request failed: ${response.status} ${response.statusText}`);
     }
 
     const result: GraphQLResponse<T> = await response.json();
+    console.log('🔍 Direct EAS GraphQL Result:', result);
     
     if (result.errors) {
-      throw new Error(`GraphQL errors: ${result.errors.map(e => e.message).join(', ')}`);
+      console.error('🔍 Direct EAS GraphQL Errors:', result.errors);
+      throw new Error(`Direct GraphQL errors: ${result.errors.map(e => e.message).join(', ')}`);
     }
 
     return result.data;
-  } catch (error) {
-    console.error('GraphQL query failed:', error);
-    throw error;
+  } catch (directError) {
+    console.warn('🔍 Direct EAS GraphQL failed, trying proxy...', directError);
+    
+    // 直接のエンドポイントが失敗した場合、プロキシを試す
+    try {
+      console.log('🔍 Trying proxy EAS GraphQL endpoint...');
+      const proxyResponse = await fetch(EAS_PROXY_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          variables,
+        }),
+      });
+
+      console.log('🔍 Proxy EAS GraphQL Response Status:', proxyResponse.status, proxyResponse.statusText);
+
+      if (!proxyResponse.ok) {
+        const errorText = await proxyResponse.text();
+        console.error('🔍 Proxy EAS GraphQL Error Response:', errorText);
+        throw new Error(`Proxy GraphQL request failed: ${proxyResponse.status} ${proxyResponse.statusText}`);
+      }
+
+      const result: GraphQLResponse<T> = await proxyResponse.json();
+      console.log('🔍 Proxy EAS GraphQL Result:', result);
+      
+      if (result.errors) {
+        console.error('🔍 Proxy EAS GraphQL Errors:', result.errors);
+        throw new Error(`Proxy GraphQL errors: ${result.errors.map(e => e.message).join(', ')}`);
+      }
+
+      return result.data;
+    } catch (proxyError) {
+      console.error('🔍 Both direct and proxy EAS GraphQL queries failed:', { directError, proxyError });
+      throw proxyError;
+    }
   }
 }
 

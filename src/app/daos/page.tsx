@@ -29,6 +29,7 @@ export default function DAOListPage() {
   const [locationFilter, setLocationFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [loading, setLoading] = useState(true);
 
 
   // クライアントサイドでのマウント検出
@@ -36,45 +37,82 @@ export default function DAOListPage() {
     setIsClient(true);
   }, []);
 
-  // 初期データの読み込み（EASから）
+  // 初期データの読み込み（優先度順）
   useEffect(() => {
     const loadDaos = async () => {
       try {
-        console.log('Loading DAOs from EAS...');
-        const allDAOAttestations = await getAllDAOs();
-        console.log('Raw attestations from EAS:', allDAOAttestations);
+        console.log('Loading DAOs...');
         
-        const allDaos = await Promise.all(
-          allDAOAttestations.map(async att => {
-            console.log('Converting attestation:', att);
-            const converted = await convertAttestationToDAO(att as any);
-            console.log('Converted result:', converted);
-            return converted;
-          })
-        );
-        const filteredDaos = allDaos.filter(dao => dao !== null);
-        console.log('Final converted DAOs:', filteredDaos);
-        
-        setDaos(filteredDaos);
-        setFilteredDaos(filteredDaos);
-      } catch (error) {
-        console.error('Failed to load DAOs from EAS:', error);
-        // フォールバック: localStorageからも試す（移行期間用）
+        // 優先度1: EAS経由で取得（ウォレット接続不要）
         try {
-          console.log('Falling back to localStorage...');
+          console.log('Trying EAS GraphQL query...');
+          const allDAOAttestations = await getAllDAOs();
+          console.log('Raw attestations from EAS:', allDAOAttestations);
+          
+          if (allDAOAttestations.length > 0) {
+            const allDaos = await Promise.all(
+              allDAOAttestations.map(async att => {
+                console.log('Converting attestation:', att);
+                const converted = await convertAttestationToDAO(att as any);
+                console.log('Converted result:', converted);
+                return converted;
+              })
+            );
+            const filteredDaos = allDaos.filter(dao => dao !== null);
+            console.log('Final converted DAOs:', filteredDaos);
+            
+            setDaos(filteredDaos);
+            setFilteredDaos(filteredDaos);
+            return; // 成功したら終了
+          }
+          console.log('No EAS attestations found, trying API...');
+        } catch (easError) {
+          console.log('EAS query failed, trying API...', easError);
+        }
+
+        // 優先度2: API経由でFirebaseから取得
+        try {
+          const response = await fetch('/api/daos');
+          if (response.ok) {
+            const result = await response.json();
+            console.log('DAOs loaded from API:', result.data);
+            setDaos(result.data);
+            setFilteredDaos(result.data);
+            return; // 成功したら終了
+          }
+        } catch (apiError) {
+          console.log('API fetch failed, trying localStorage...', apiError);
+        }
+
+        // 優先度3: ローカルストレージから取得
+        try {
           const storedDaos = JSON.parse(localStorage.getItem('daos') || '[]');
           console.log('DAOs from localStorage:', storedDaos);
-          setDaos(storedDaos);
-          setFilteredDaos(storedDaos);
-        } catch (fallbackError) {
-          console.error('Fallback localStorage load also failed:', fallbackError);
+          if (storedDaos.length > 0) {
+            setDaos(storedDaos);
+            setFilteredDaos(storedDaos);
+            return; // 成功したら終了
+          }
+        } catch (storageError) {
+          console.log('localStorage access failed:', storageError);
         }
+
+        // データが見つからない場合は空配列
+        console.log('No DAOs found, setting empty array');
+        setDaos([]);
+        setFilteredDaos([]);
+        
+      } catch (error) {
+        console.error('Failed to load DAOs:', error);
+        setDaos([]);
+        setFilteredDaos([]);
+      } finally {
+        setLoading(false);
       }
     };
 
-    // ページ読み込み時に直接DAOを読み込む（ウォレット接続不要）
     loadDaos();
-  }, []); // 依存配列を空にして、コンポーネントマウント時に一度だけ実行
+  }, [getAllDAOs]);
 
   // 検索とフィルタリングの適用
   useEffect(() => {
@@ -110,6 +148,77 @@ export default function DAOListPage() {
 
   // 所在地の一覧を取得（重複を除去）
   const locations = Array.from(new Set(daos.map(dao => dao.location)));
+
+  if (loading) {
+    return (
+      <main className="min-h-screen p-8 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold mb-8 text-gray-900">DAO一覧</h1>
+          
+          {/* ローディングスケルトン */}
+          <div className="space-y-6">
+            {/* 検索・フィルター部分のスケルトン */}
+            <div className="bg-white rounded-lg p-6 shadow-sm">
+              <div className="flex flex-wrap gap-4 mb-4">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                </div>
+                <div className="w-48">
+                  <div className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                </div>
+                <div className="w-48">
+                  <div className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                </div>
+              </div>
+              <div className="h-4 bg-gray-200 rounded w-48 animate-pulse"></div>
+            </div>
+
+            {/* テーブル部分のスケルトン */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div className="px-6 py-3 bg-gray-50 border-b">
+                <div className="grid grid-cols-6 gap-4">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              </div>
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="px-6 py-4 border-b border-gray-200">
+                  <div className="grid grid-cols-6 gap-4 items-center">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
+                    </div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-6 bg-gray-200 rounded-full w-16 animate-pulse"></div>
+                    <div className="flex items-center">
+                      <div className="w-16 bg-gray-200 rounded-full h-2.5 mr-2 animate-pulse"></div>
+                      <div className="h-4 bg-gray-200 rounded w-8 animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ローディングメッセージ */}
+            <div className="text-center py-8">
+              <div className="inline-flex items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                <span className="text-lg text-gray-600">DAOを読み込んでいます...</span>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                EAS、API、ローカルストレージから順次データを取得中
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen p-8 bg-gray-50">

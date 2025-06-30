@@ -178,7 +178,7 @@ export const EasProvider: React.FC<EasProviderProps> = ({ children }) => {
     try {
       console.log('Getting all DAOs with schema UID:', SCHEMA_UIDS.DAO_MAIN);
       
-      // まずGraphQLを試す
+      // GraphQLクエリを使用（ウォレット接続不要）
       try {
         const { getAttestationsBySchema: queryAttestations } = await import('@/utils/easQuery');
         const attestations = await queryAttestations(SCHEMA_UIDS.DAO_MAIN);
@@ -194,40 +194,10 @@ export const EasProvider: React.FC<EasProviderProps> = ({ children }) => {
           revoked: att.revoked
         }));
       } catch (graphqlError) {
-        console.warn('GraphQL query failed, trying direct EAS SDK approach:', graphqlError);
-        
-        // GraphQLが失敗した場合、既知のアテステーションUIDを直接取得
-        // 成功したアテステーションUID: 0xb9a317eca6e1793a0e028a0dc02b06a56f4c7898b7a2a1fab7ec1ad6e9f74cad
-        const knownAttestationUID = '0xb9a317eca6e1793a0e028a0dc02b06a56f4c7898b7a2a1fab7ec1ad6e9f74cad';
-        
-        if (eas) {
-          try {
-            const attestation = await eas.getAttestation(knownAttestationUID);
-            console.log('Retrieved attestation via EAS SDK:', attestation);
-            
-            // SchemaEncoderを使用してデータをデコード
-            const { SchemaEncoder } = await import('@ethereum-attestation-service/eas-sdk');
-            const schemaEncoder = new SchemaEncoder('string daoUID,string daoName,address adminAddress');
-            const decodedData = schemaEncoder.decodeData(attestation.data);
-            console.log('Decoded data:', decodedData);
-            
-            return [{
-              uid: attestation.uid,
-              schema: attestation.schema,
-              data: JSON.stringify(decodedData), // デコードされたデータをJSON文字列として格納
-              attester: attestation.attester,
-              recipient: attestation.recipient,
-              time: Number(attestation.time),
-              revoked: false
-            }];
-          } catch (sdkError) {
-            console.error('EAS SDK also failed:', sdkError);
-            return [];
-          }
-        } else {
-          console.warn('EAS not connected, cannot use SDK fallback');
-          return [];
-        }
+        console.warn('GraphQL query failed:', graphqlError);
+        // GraphQLが失敗した場合は空配列を返す（ウォレット接続を要求しない）
+        // 呼び出し側で他のデータソース（API、localStorage）にフォールバックする
+        return [];
       }
     } catch (error) {
       console.error('Error querying all DAOs:', error);

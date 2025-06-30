@@ -25,153 +25,183 @@ const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
 };
 
 export default function DAODetailPage({ params }: DAODetailPageProps) {
-  const { getAllDAOs, connect, isConnected } = useEas();
+  const { getAllDAOs, isConnected } = useEas();
   const [dao, setDao] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-
-  // EASに自動接続
-  useEffect(() => {
-    if (!isConnected) {
-      connect().catch(error => {
-        console.error('Failed to auto-connect to EAS:', error);
-      });
-    }
-  }, [isConnected, connect]);
 
   useEffect(() => {
     const loadDao = async () => {
       try {
         console.log(`Loading DAO with ID: ${params.id}`);
-        if (isConnected) {
-          console.log('EAS is connected, fetching from blockchain...');
-          // EASからDAOデータを取得（ファイルベースデータベースの詳細情報も統合される）
+        
+        // 優先度1: EAS経由で取得（ウォレット接続不要）
+        try {
+          console.log('Trying EAS GraphQL query...');
           const allDAOAttestations = await getAllDAOs();
           console.log(`Found ${allDAOAttestations.length} DAO attestations`);
-          const daoPromises = allDAOAttestations.map(att => convertAttestationToDAO(att as any));
-          const allDaos = (await Promise.all(daoPromises)).filter(dao => dao !== null);
-          console.log(`Converted ${allDaos.length} DAOs successfully`);
-          console.log('Available DAO IDs:', allDaos.map(d => d.id));
-          const foundDao = allDaos.find((d: any) => d.id === params.id);
           
-          if (foundDao) {
-            console.log('DAO found via EAS:', foundDao);
-            console.log('DAO documents:', foundDao.documents);
-            console.log('DAO documents length:', foundDao.documents?.length);
-            if (foundDao.documents?.length > 0) {
-              console.log('First document structure:', foundDao.documents[0]);
-              console.log('Document types:', foundDao.documents.map((d: any) => ({ name: d.name, type: d.type, id: d.id })));
-              
-              // Type distribution analysis
-              const typeCount = foundDao.documents.reduce((acc: any, doc: any) => {
-                acc[doc.type] = (acc[doc.type] || 0) + 1;
-                return acc;
-              }, {});
-              console.log('📊 Document type distribution:', typeCount);
-            }
-            setDao(foundDao);
-          } else {
-            console.log('DAO not found in EAS data, trying database API...');
-            // フォールバック: ファイルベースデータベースから直接取得
-            try {
-              const response = await fetch(`/api/daos/${params.id}`);
-              if (response.ok) {
-                const result = await response.json();
-                setDao(result.data);
-              } else {
-                // 最後のフォールバック: ローカルストレージから取得
-                const storedDaos = JSON.parse(localStorage.getItem('daos') || '[]');
-                const localDao = storedDaos.find((d: any) => d.id === params.id);
-                if (localDao) {
-                  setDao(localDao);
-                } else {
-                  notFound();
-                }
-              }
-            } catch (apiError) {
-              console.error('Failed to fetch from API:', apiError);
-              // 最後のフォールバック: ローカルストレージから取得
-              const storedDaos = JSON.parse(localStorage.getItem('daos') || '[]');
-              const localDao = storedDaos.find((d: any) => d.id === params.id);
-              if (localDao) {
-                setDao(localDao);
-              } else {
-                notFound();
-              }
+          if (allDAOAttestations.length > 0) {
+            const daoPromises = allDAOAttestations.map(att => convertAttestationToDAO(att as any));
+            const allDaos = (await Promise.all(daoPromises)).filter(dao => dao !== null);
+            console.log(`Converted ${allDaos.length} DAOs successfully`);
+            console.log('Available DAO IDs:', allDaos.map(d => d.id));
+            const foundDao = allDaos.find((d: any) => d.id === params.id);
+            
+            if (foundDao) {
+              console.log('DAO found via EAS:', foundDao);
+              setDao(foundDao);
+              return; // 成功したら終了
             }
           }
+          console.log('DAO not found in EAS data, trying API...');
+        } catch (easError) {
+          console.log('EAS query failed, trying API...', easError);
         }
+        
+        // 優先度2: API経由でFirebaseから取得
+        try {
+          const response = await fetch(`/api/daos/${params.id}`);
+          if (response.ok) {
+            const result = await response.json();
+            console.log('DAO found via API:', result.data);
+            setDao(result.data);
+            return; // 成功したら終了
+          } else {
+            console.log('DAO not found in API, status:', response.status);
+          }
+        } catch (apiError) {
+          console.error('Failed to fetch from API:', apiError);
+        }
+
+        // 優先度3: ローカルストレージから取得
+        try {
+          const storedDaos = JSON.parse(localStorage.getItem('daos') || '[]');
+          const localDao = storedDaos.find((d: any) => d.id === params.id);
+          if (localDao) {
+            console.log('DAO found in localStorage:', localDao);
+            setDao(localDao);
+            return; // 成功したら終了
+          }
+        } catch (storageError) {
+          console.log('localStorage access failed:', storageError);
+        }
+
+        // すべて失敗した場合
+        console.log('DAO not found in any data source');
+        notFound();
+        
       } catch (err) {
         console.error('Failed to load DAO:', err);
-        // フォールバック: ローカルストレージから取得
-        try {
-          const storedDaos = JSON.parse(localStorage.getItem('daos') || '[]');
-          const localDao = storedDaos.find((d: any) => d.id === params.id);
-          if (localDao) {
-            setDao(localDao);
-          } else {
-            notFound();
-          }
-        } catch (fallbackErr) {
-          notFound();
-        }
+        notFound();
       } finally {
         setLoading(false);
       }
     };
 
-    const loadDaoFallback = async () => {
-      console.log('EAS not connected, trying database API...');
-      // EASが接続されていない場合はファイルベースデータベースから取得
-      try {
-        const response = await fetch(`/api/daos/${params.id}`);
-        if (response.ok) {
-          const result = await response.json();
-          console.log('DAO found via database API:', result.data);
-          setDao(result.data);
-        } else {
-          console.log('DAO not found in database API, trying localStorage...');
-          // フォールバック: ローカルストレージから取得
-          const storedDaos = JSON.parse(localStorage.getItem('daos') || '[]');
-          const localDao = storedDaos.find((d: any) => d.id === params.id);
-          if (localDao) {
-            setDao(localDao);
-          } else {
-            notFound();
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load DAO without EAS connection:', err);
-        // フォールバック: ローカルストレージから取得
-        try {
-          const storedDaos = JSON.parse(localStorage.getItem('daos') || '[]');
-          const localDao = storedDaos.find((d: any) => d.id === params.id);
-          if (localDao) {
-            setDao(localDao);
-          } else {
-            notFound();
-          }
-        } catch (fallbackErr) {
-          notFound();
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isConnected) {
-      loadDao();
-    } else {
-      loadDaoFallback();
-    }
-  }, [params.id, isConnected, getAllDAOs]);
+    loadDao();
+  }, [params.id, getAllDAOs]);
 
 
 
   if (loading || !dao) {
     return (
       <main className="min-h-screen p-8">
-        <div className="text-center">読み込み中...</div>
+        <div className="max-w-6xl mx-auto">
+          {/* 戻るリンクのスケルトン */}
+          <div className="mb-8">
+            <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
+          </div>
+          
+          {/* DAO詳細のスケルトン */}
+          <div className="space-y-8">
+            {/* ヘッダー部分のスケルトン */}
+            <div className="flex items-start space-x-6">
+              <div className="h-24 w-24 bg-gray-200 rounded-lg animate-pulse flex-shrink-0"></div>
+              <div className="flex-1 space-y-4">
+                <div className="h-8 bg-gray-200 rounded w-64 animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* 基本情報とコンタクト情報のスケルトン */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white rounded-lg p-6 shadow-sm space-y-4">
+                <div className="h-6 bg-gray-200 rounded w-24 animate-pulse"></div>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                    <div className="h-5 bg-gray-200 rounded w-32 animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="bg-white rounded-lg p-6 shadow-sm space-y-4">
+                <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                    <div className="h-5 bg-gray-200 rounded w-40 animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ブロックチェーン情報のスケルトン */}
+            <div className="bg-white rounded-lg p-6 shadow-sm space-y-4">
+              <div className="h-6 bg-gray-200 rounded w-40 animate-pulse"></div>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
+                  <div className="h-3 bg-gray-200 rounded w-24 animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* ドキュメント一覧のスケルトン */}
+            <div className="bg-white rounded-lg p-6 shadow-sm space-y-4">
+              <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
+              <div className="h-4 bg-gray-200 rounded w-96 animate-pulse"></div>
+              
+              {/* テーブルヘッダー */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-6 py-3">
+                  <div className="grid grid-cols-5 gap-4">
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                </div>
+                {/* テーブル行 */}
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="px-6 py-4 border-t border-gray-200">
+                    <div className="grid grid-cols-5 gap-4">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ローディングメッセージ */}
+            <div className="text-center py-8">
+              <div className="inline-flex items-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                <span className="text-lg text-gray-600">DAO情報を読み込んでいます...</span>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                EAS、API、ローカルストレージから順次データを取得中
+              </p>
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
