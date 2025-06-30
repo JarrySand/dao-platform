@@ -455,15 +455,7 @@ export default function DaoManagementPage({ params }: Props) {
               </button>
             </div>
 
-            {/* デバッグ情報 */}
-            <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
-              <p><strong>デバッグ情報:</strong></p>
-              <p>DAO ID: {id}</p>
-              <p>DAO Attestation UID: {dao?.attestationUID || '未設定'}</p>
-              <p>ローカルドキュメント数: {documents.length}</p>
-              <p>ブロックチェーンドキュメント数: {blockchainDocuments.length}</p>
-              <p>DAO内ドキュメント: {dao?.documents?.length || 0}</p>
-            </div>
+
 
             {/* Web3ドキュメント登録コンポーネント */}
             {isDocumentRegisterOpen && (
