@@ -82,12 +82,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // 簡単な認証（実際のプロジェクトではAPIを使用）
-      if (email === 'admin@example.com' && password === 'password') {
+      // 開発環境でのみダミー認証を有効化
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      const demoEmail = process.env.NEXT_PUBLIC_DEMO_ADMIN_EMAIL || (isDevelopment ? 'admin@example.com' : '');
+      const demoPassword = process.env.NEXT_PUBLIC_DEMO_ADMIN_PASSWORD || (isDevelopment ? 'password' : '');
+      
+      if (isDevelopment && demoEmail && demoPassword && email === demoEmail && password === demoPassword) {
         const newUser: User = {
           id: '1',
           email: email,
-          name: 'Admin User',
+          name: 'Demo Admin User',
           role: 'admin',
           authType: 'email',
           createdAt: new Date().toISOString(),
@@ -100,6 +104,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         return true;
       }
+      
+      // 本番環境では実際の認証APIを実装する必要があります
+      if (!isDevelopment) {
+        throw new Error('Authentication API not implemented for production environment');
+      }
+      
       return false;
     } catch (error) {
       console.error('Login error:', error);
