@@ -10,12 +10,7 @@ import {
 } from '@/services/documentService';
 import { getIPFSFileUrl } from '@/utils/ipfsStorage';
 
-// Add proper window ethereum type definition
-declare global {
-  interface Window {
-    ethereum: any;
-  }
-}
+
 
 interface DocumentRegisterProps {
   daoId: string;

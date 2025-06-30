@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -15,18 +15,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  useEffect(() => {
-    // クライアントサイドでのみモックデータを初期化
-    if (typeof window !== 'undefined') {
-      const initializeMockData = async () => {
-        if (!localStorage.getItem('daos')) {
-          const { initializeMockData } = await import('@/utils/mockData');
-          initializeMockData();
-        }
-      };
-      initializeMockData();
-    }
-  }, []);
+
 
   return (
     <html lang="ja">

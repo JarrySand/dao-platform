@@ -107,8 +107,10 @@ export default function FileAttestationCreator({
       let uid = '';
       if (receiptResponse) {
         try {
+          // 型アサーションを使用して正しい型として扱う
+          const receipt = receiptResponse as any;
           // まずlogsが配列かどうか確認
-          const logs = Array.isArray(receiptResponse.logs) ? receiptResponse.logs : [];
+          const logs = Array.isArray(receipt.logs) ? receipt.logs : [];
           
           if (logs.length > 0) {
             const firstLog = logs[0];

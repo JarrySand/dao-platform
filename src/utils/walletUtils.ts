@@ -20,6 +20,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '🦊',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
@@ -32,6 +33,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '💙',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
@@ -44,6 +46,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '🛡️',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
@@ -56,6 +59,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '🦁',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
@@ -68,6 +72,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '🌈',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
@@ -80,6 +85,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '🐰',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
@@ -92,6 +98,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '🖼️',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
@@ -104,6 +111,7 @@ export const getAvailableWallets = (): WalletInfo[] => {
       icon: '🔗',
       installed: true,
       connect: async () => {
+        if (!window.ethereum) throw new Error('Ethereum provider not found');
         return await window.ethereum.request({ method: 'eth_requestAccounts' });
       }
     });
