@@ -520,7 +520,7 @@ interface FirebaseDAOData {
   description: string;
   location: string;
   memberCount: number;
-  status: "active" | "inactive";
+  status: 'active' | 'inactive';
   foundingDate: Timestamp | null;
   logoUrl: string;
   website: string;
@@ -559,7 +559,7 @@ interface FirebaseDocumentData {
   fileSize: number; // バイト数
   fileType: string; // MIME タイプ
   // ステータス
-  status: "active" | "revoked";
+  status: 'active' | 'revoked';
   registeredBy: string; // EAS attester アドレスのキャッシュ
   // タイムスタンプ
   registeredAt: Timestamp; // EAS タイムスタンプのキャッシュ
@@ -624,23 +624,22 @@ query DocumentsByDAO($daoUID: String!) {
 export const CHAIN_CONFIG = {
   sepolia: {
     chainId: 11155111,
-    easContractAddress: "0xC2679fBD37d54388Ce493F1DB75320D236e1815e",
-    schemaRegistryAddress: "0x0a7E2Ff54e76B8E6659aedc9103FB21c038050D0",
+    easContractAddress: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e',
+    schemaRegistryAddress: '0x0a7E2Ff54e76B8E6659aedc9103FB21c038050D0',
     schemas: {
-      dao: "0x087cc98cb9696a0b70363e43ac372f19db9da2ed6a84bbaf3b4b86b039c5f9e1",
-      documentV2: "（デプロイ後に記入）",
-      documentV1:
-        "0xbc9fcde5f231a0df136d1685c8d9c043c857ab7135b0b7ba0fe8c6567bcbc152", // 読み取り専用
+      dao: '0x087cc98cb9696a0b70363e43ac372f19db9da2ed6a84bbaf3b4b86b039c5f9e1',
+      documentV2: '（デプロイ後に記入）',
+      documentV1: '0xbc9fcde5f231a0df136d1685c8d9c043c857ab7135b0b7ba0fe8c6567bcbc152', // 読み取り専用
     },
     schemaDefinitions: {
-      dao: "string daoUID,string daoName,address adminAddress",
+      dao: 'string daoUID,string daoName,address adminAddress',
       documentV2:
-        "bytes32 daoAttestationUID,string documentTitle,string documentType,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId,bytes32 votingTxHash,uint256 votingChainId",
+        'bytes32 daoAttestationUID,string documentTitle,string documentType,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId,bytes32 votingTxHash,uint256 votingChainId',
       documentV1:
-        "bytes32 daoAttestationUID,string documentTitle,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId",
+        'bytes32 daoAttestationUID,string documentTitle,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId',
     },
-    graphqlEndpoint: "https://sepolia.easscan.org/graphql",
-    explorerUrl: "https://sepolia.etherscan.io",
+    graphqlEndpoint: 'https://sepolia.easscan.org/graphql',
+    explorerUrl: 'https://sepolia.etherscan.io',
   },
   // マルチチェーン対応時に追加（Post-Alpha）
 } as const;
@@ -1026,19 +1025,17 @@ DAO 変換時の Firebase 個別読み取りをバッチ化する。
 ```typescript
 // v1: N回の個別読み取り
 for (const dao of daos) {
-  const meta = await getDoc(doc(db, "daos", dao.id)); // N回
+  const meta = await getDoc(doc(db, 'daos', dao.id)); // N回
 }
 
 // v2: 1回のバッチ読み取り（Firestore の制限: 最大10件/バッチ）
-import { documentId, where, getDocs, query } from "firebase/firestore";
+import { documentId, where, getDocs, query } from 'firebase/firestore';
 
-async function batchGetDAOMetadata(
-  daoIds: string[],
-): Promise<Map<string, FirebaseDAOData>> {
+async function batchGetDAOMetadata(daoIds: string[]): Promise<Map<string, FirebaseDAOData>> {
   const results = new Map();
   // Firestore の `in` クエリは最大30件まで
   for (const chunk of chunkArray(daoIds, 30)) {
-    const q = query(collection(db, "daos"), where(documentId(), "in", chunk));
+    const q = query(collection(db, 'daos'), where(documentId(), 'in', chunk));
     const snapshot = await getDocs(q);
     snapshot.docs.forEach((doc) => results.set(doc.id, doc.data()));
   }
@@ -1092,11 +1089,11 @@ DAO 名のテキスト検索は **Firebase Firestore** で実行する。EAS Gra
 // Firestore のテキスト検索: prefix match（startAt / endAt）
 // DAO 名の完全一致 or 前方一致を Firestore で処理
 const q = query(
-  collection(db, "daos"),
-  where("status", "==", "active"),
-  where("name", ">=", searchText),
-  where("name", "<=", searchText + "\uf8ff"),
-  orderBy("name"),
+  collection(db, 'daos'),
+  where('status', '==', 'active'),
+  where('name', '>=', searchText),
+  where('name', '<=', searchText + '\uf8ff'),
+  orderBy('name'),
   limit(pageSize),
 );
 ```
@@ -1118,7 +1115,7 @@ const q = query(
 interface PaginationParams {
   limit: number; // デフォルト: 20、最大: 100
   cursor?: string; // 前ページ最後の DAO attestationUID
-  direction?: "next" | "prev";
+  direction?: 'next' | 'prev';
 }
 
 interface PaginatedResponse<T> {
@@ -1195,10 +1192,7 @@ EAS GraphQL の `decodedDataJson: { contains: $daoUID }` は **JSON 文字列全
 
 ```typescript
 // shared/lib/eas/queries.ts
-function filterByDAOUID(
-  attestations: EASAttestation[],
-  daoUID: string,
-): EASAttestation[] {
+function filterByDAOUID(attestations: EASAttestation[], daoUID: string): EASAttestation[] {
   return attestations.filter((att) => {
     const decoded = decodeAttestationData(att.decodedDataJson);
     return decoded.daoAttestationUID === daoUID;
@@ -1358,7 +1352,7 @@ Firebase Auth トークンにはウォレット情報が含まれないため、
 
 ```typescript
 // shared/lib/wallet/verify.ts
-import { ethers } from "ethers";
+import { ethers } from 'ethers';
 
 interface WalletVerification {
   walletAddress: string;
@@ -1367,25 +1361,23 @@ interface WalletVerification {
   timestamp: number; // リプレイ攻撃防止
 }
 
-async function verifyWalletOwnership(
-  verification: WalletVerification,
-): Promise<string> {
+async function verifyWalletOwnership(verification: WalletVerification): Promise<string> {
   const { walletAddress, signature, message, timestamp } = verification;
 
   // タイムスタンプ有効期限: 5分
   if (Date.now() - timestamp > 5 * 60 * 1000) {
-    throw new ApiError(401, "Signature expired");
+    throw new ApiError(401, 'Signature expired');
   }
 
   // 署名からアドレスを復元
   const expectedMessage = `DAO Platform Verification\nAddress: ${walletAddress}\nTimestamp: ${timestamp}`;
   if (message !== expectedMessage) {
-    throw new ApiError(401, "Invalid message format");
+    throw new ApiError(401, 'Invalid message format');
   }
 
   const recoveredAddress = ethers.verifyMessage(message, signature);
   if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-    throw new ApiError(401, "Wallet ownership verification failed");
+    throw new ApiError(401, 'Wallet ownership verification failed');
   }
 
   return recoveredAddress;
@@ -1534,14 +1526,14 @@ interface ApiErrorResponse {
 
 ```typescript
 // shared/lib/api-client.ts (サーバーサイド)
-import { getAuth } from "firebase-admin/auth";
+import { getAuth } from 'firebase-admin/auth';
 
 async function verifyAuth(request: NextRequest): Promise<DecodedIdToken> {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new ApiError(401, "Authorization header required");
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new ApiError(401, 'Authorization header required');
   }
-  const token = authHeader.split("Bearer ")[1];
+  const token = authHeader.split('Bearer ')[1];
   return getAuth().verifyIdToken(token);
 }
 ```
@@ -1630,7 +1622,7 @@ const cspHeader = `
   frame-src 'none';
   object-src 'none';
   base-uri 'self';
-`.replace(/\n/g, " ");
+`.replace(/\n/g, ' ');
 ```
 
 **注意点:**
@@ -1652,20 +1644,10 @@ const ALLOWED_ORIGINS = [
 ];
 
 function setCorsHeaders(response: NextResponse, origin: string): NextResponse {
-  if (
-    ALLOWED_ORIGINS.some((o) =>
-      o instanceof RegExp ? o.test(origin) : o === origin,
-    )
-  ) {
-    response.headers.set("Access-Control-Allow-Origin", origin);
-    response.headers.set(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, OPTIONS",
-    );
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization",
-    );
+  if (ALLOWED_ORIGINS.some((o) => (o instanceof RegExp ? o.test(origin) : o === origin))) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   }
   return response;
 }
@@ -1704,7 +1686,7 @@ interface AuthState {
 // v1 の "member" | "operator" | "superadmin" は廃止。
 
 interface AuthActions {
-  setUser: (user: AuthState["user"]) => void;
+  setUser: (user: AuthState['user']) => void;
   setLoading: (loading: boolean) => void;
   logout: () => void; // Firebase signOut + 全ストア reset
   initialize: () => () => void; // onAuthStateChanged リスナー登録、クリーンアップ関数を返す
@@ -1734,8 +1716,8 @@ type WalletStore = WalletState & WalletActions;
 ### 12.2 永続化・SSR 対応
 
 ```typescript
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 const useWalletStore = create<WalletStore>()(
   persist(
@@ -1743,7 +1725,7 @@ const useWalletStore = create<WalletStore>()(
       /* ... */
     }),
     {
-      name: "wallet-store",
+      name: 'wallet-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         address: state.address, // 永続化する
@@ -1887,15 +1869,15 @@ v2 の初回読み取り時にデフォルト値を補完する「遅延移行�
 // shared/lib/firebase/types.ts
 function normalizeDAOMetadata(raw: Record<string, unknown>): FirebaseDAOData {
   return {
-    description: raw.description ?? "",
-    location: raw.location ?? "",
+    description: raw.description ?? '',
+    location: raw.location ?? '',
     memberCount: raw.memberCount ?? 0,
-    status: raw.status ?? "active",
+    status: raw.status ?? 'active',
     foundingDate: raw.foundingDate ?? null,
-    logoUrl: raw.logoUrl ?? "",
-    website: raw.website ?? "",
-    contactEmail: raw.contactEmail ?? "",
-    contactPerson: raw.contactPerson ?? "",
+    logoUrl: raw.logoUrl ?? '',
+    website: raw.website ?? '',
+    contactEmail: raw.contactEmail ?? '',
+    contactPerson: raw.contactPerson ?? '',
     documents: raw.documents ?? [],
     createdAt: raw.createdAt ?? new Date(),
     updatedAt: raw.updatedAt ?? new Date(),

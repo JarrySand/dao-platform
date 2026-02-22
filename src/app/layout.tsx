@@ -1,33 +1,37 @@
-'use client';
-
-
+import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { EasProvider } from '@/contexts/EasContext';
-import Navbar from '@/components/Navbar';
-import ClientOnly from '@/components/ClientOnly';
+import { AppProviders } from '@/shared/providers';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const metadata: Metadata = {
+  title: 'DAO Document Platform',
+  description:
+    'Manage DAO documents with blockchain attestations for authenticity and immutability',
+};
 
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme');
+                  if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className={inter.className}>
-        <AuthProvider>
-          <EasProvider>
-            <ClientOnly fallback={<div className="bg-blue-600 h-16 w-full animate-pulse"></div>}>
-              <Navbar />
-            </ClientOnly>
-            {children}
-          </EasProvider>
-        </AuthProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

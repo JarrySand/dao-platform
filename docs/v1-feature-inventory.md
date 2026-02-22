@@ -309,16 +309,16 @@ interface Document {
 }
 
 // v1: "voting" なし（v2 で追加）
-type DocumentType = "articles" | "meeting" | "token" | "operation" | "other";
+type DocumentType = 'articles' | 'meeting' | 'token' | 'operation' | 'other';
 // v2: "voting" | "unknown"（v1後方互換）を追加予定
 
 interface User {
   id: string;
   email?: string;
   walletAddress?: string;
-  authType: "email" | "wallet";
-  role: "admin" | "member" | "operator" | "superadmin";
-  status: "active" | "inactive";
+  authType: 'email' | 'wallet';
+  role: 'admin' | 'member' | 'operator' | 'superadmin';
+  status: 'active' | 'inactive';
 }
 ```
 
