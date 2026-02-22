@@ -304,7 +304,8 @@ src/
 │   │   ├── eas/
 │   │   │   ├── client.ts             #   EAS SDK 初期化
 │   │   │   ├── schema.ts             #   スキーマ定義・エンコード/デコード
-│   │   │   ├── graphql.ts            #   GraphQL クエリ実行
+│   │   │   ├── graphql.ts            #   GraphQL クエリ実行 + バッチクエリ
+│   │   │   ├── queries.ts            #   単一リソースクエリ定義 [NEW]
 │   │   │   └── types.ts              #   EAS 固有型
 │   │   ├── ipfs/
 │   │   │   ├── client.ts             #   IPFSアップロード/ダウンロード
@@ -466,7 +467,186 @@ VotingDocumentForm (DocumentRegisterForm を拡張)
 
 ---
 
-## 5. 設定ファイル一覧
+## 5. EAS クエリ最適化戦略
+
+v1 では EAS GraphQL クエリに深刻なパフォーマンス問題がある。v2 では以下の戦略で解決する。
+
+### 5.1 v1 の問題点
+
+| 問題                   | 深刻度 | 詳細                                                     |
+| ---------------------- | ------ | -------------------------------------------------------- |
+| N+1 問題               | 致命的 | `daos/[id]` が1件取得のために全 DAO を取得してフィルター |
+| キャッシュなし         | 致命的 | 同一データを毎レンダーで再取得、TanStack Query 未活用    |
+| 個別 GraphQL コール    | 致命的 | DAO ごとにドキュメント取得の個別リクエスト発行           |
+| クライアント側フィルタ | 高     | 全ドキュメント取得→ JS で daoAttestationUID フィルター   |
+| Firebase 個別読み取り  | 高     | DAO 変換ごとに Firebase を個別呼び出し（N回）            |
+| リクエスト重複         | 高     | 同一 `getAllDAOs()` が複数コンポーネントから重複実行     |
+
+### 5.2 最適化方針
+
+#### OPT-01: 単一リソースクエリの導入
+
+v1 では全件取得 → `find()` で1件抽出していた。v2 では UID 指定の専用クエリを用意する。
+
+```
+v1: getAllDAOs() → find(d => d.id === id)          // 全件取得（100件）→ 1件抽出
+v2: getDAOByUID(uid) → GraphQL where: { id: uid }  // 1件直接取得
+```
+
+**対象:**
+
+- `getDAOByUID(uid)` — 単一 DAO 取得
+- `getDocumentByUID(uid)` — 単一ドキュメント取得
+- `getDocumentsByDAO(daoUID)` — 特定 DAO のドキュメントをサーバーサイドでフィルター
+
+#### OPT-02: GraphQL バッチクエリ
+
+複数の独立したクエリを1つの HTTP リクエストに統合する。
+
+```graphql
+# v1: 3回の個別リクエスト
+# Request 1: getAllDAOs
+# Request 2: getDocumentsByDAO(dao1)
+# Request 3: getDocumentsByDAO(dao2)
+
+# v2: 1回のバッチリクエスト
+query BatchQuery {
+  daos: attestations(where: { schemaId: { equals: $daoSchemaId } }) { ... }
+  docs_dao1: attestations(where: {
+    schemaId: { equals: $docSchemaId },
+    decodedDataJson: { contains: $dao1UID }
+  }) { ... }
+  docs_dao2: attestations(where: {
+    schemaId: { equals: $docSchemaId },
+    decodedDataJson: { contains: $dao2UID }
+  }) { ... }
+}
+```
+
+**実装場所:** `shared/lib/eas/graphql.ts` に `executeBatchQuery()` を追加
+
+#### OPT-03: TanStack Query キャッシュ戦略
+
+```typescript
+// shared/lib/query-client.ts
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // 1分間はキャッシュ優先
+      gcTime: 10 * 60 * 1000, // 10分間キャッシュ保持
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+```
+
+| クエリ種別       | staleTime | gcTime | 理由                                       |
+| ---------------- | --------- | ------ | ------------------------------------------ |
+| DAO 一覧         | 60s       | 10min  | 頻繁に変わらない、一覧表示で最もコール多い |
+| DAO 詳細         | 60s       | 10min  | 同上                                       |
+| ドキュメント一覧 | 30s       | 5min   | 登録直後の反映を考慮                       |
+| ドキュメント詳細 | 5min      | 30min  | 不変データが多い（EAS アテステーション）   |
+| My DAO 一覧      | 30s       | 5min   | ウォレット変更時に invalidate              |
+
+**TanStack Query のリクエスト重複排除:**
+
+- 同一 queryKey のリクエストは自動的に1つに統合される（built-in）
+- v1 の「同じ `getAllDAOs()` が複数回実行される」問題は TanStack Query 導入で自動解決
+
+#### OPT-04: API Route レベルキャッシュ
+
+EAS GraphQL プロキシにサーバーサイドキャッシュを追加する。
+
+```typescript
+// app/api/eas-proxy/route.ts
+const cache = new Map<string, { data: unknown; expiry: number }>();
+const CACHE_TTL = 30 * 1000; // 30秒
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const cacheKey = JSON.stringify(body);
+
+  const cached = cache.get(cacheKey);
+  if (cached && cached.expiry > Date.now()) {
+    return NextResponse.json(cached.data);
+  }
+
+  const response = await fetch(EAS_GRAPHQL_ENDPOINT, { ... });
+  const data = await response.json();
+  cache.set(cacheKey, { data, expiry: Date.now() + CACHE_TTL });
+
+  return NextResponse.json(data);
+}
+```
+
+**注意:** Vercel Serverless では Map はリクエスト間で共有されない場合がある。本格運用では以下を検討:
+
+- `next.config.js` の `fetch()` キャッシュ（Next.js 組み込み `revalidate`）
+- Vercel KV / Upstash Redis（Post-Alpha）
+
+#### OPT-05: Firebase バッチ読み取り
+
+DAO 変換時の Firebase 個別読み取りをバッチ化する。
+
+```typescript
+// v1: N回の個別読み取り
+for (const dao of daos) {
+  const meta = await getDoc(doc(db, "daos", dao.id)); // N回
+}
+
+// v2: 1回のバッチ読み取り（Firestore の制限: 最大10件/バッチ）
+import { documentId, where, getDocs, query } from "firebase/firestore";
+
+async function batchGetDAOMetadata(
+  daoIds: string[],
+): Promise<Map<string, FirebaseDAOData>> {
+  const results = new Map();
+  // Firestore の `in` クエリは最大30件まで
+  for (const chunk of chunkArray(daoIds, 30)) {
+    const q = query(collection(db, "daos"), where(documentId(), "in", chunk));
+    const snapshot = await getDocs(q);
+    snapshot.docs.forEach((doc) => results.set(doc.id, doc.data()));
+  }
+  return results;
+}
+```
+
+**実装場所:** `shared/lib/firebase/client.ts`
+
+### 5.3 データ取得フロー比較
+
+```
+v1（現状）:
+  DAO一覧ページ → getAllDAOs() [GraphQL 1回]
+    → 各DAOごとに:
+        getDocumentsByDAO() [GraphQL N回]
+        getDAODetailsFromDatabase() [Firebase N回]
+  = 合計: 1 + N + N = 2N+1 リクエスト（DAO 20件で 41リクエスト）
+
+v2（最適化後）:
+  DAO一覧ページ → TanStack Query (キャッシュ確認)
+    → API Route [1回]
+      → EAS バッチクエリ [GraphQL 1回: DAO一覧 + ドキュメント数]
+      → Firebase バッチ読み取り [Firebase 1回: 全DAOメタデータ]
+    → レスポンスをキャッシュ (60秒)
+  = 合計: 2リクエスト（キャッシュヒット時は 0）
+```
+
+### 5.4 ディレクトリ構成への反映
+
+```
+shared/lib/eas/
+  ├── client.ts       # EAS SDK 初期化
+  ├── schema.ts       # スキーマ定義・エンコード/デコード
+  ├── graphql.ts      # GraphQL クエリ実行 + バッチクエリ [OPT-02]
+  ├── queries.ts      # 単一リソースクエリ定義 [OPT-01]
+  └── types.ts        # EAS 固有型
+```
+
+---
+
+## 6. 設定ファイル一覧
 
 | ファイル                   | 用途                                   |
 | -------------------------- | -------------------------------------- |
@@ -483,7 +663,7 @@ VotingDocumentForm (DocumentRegisterForm を拡張)
 
 ---
 
-## 6. 環境変数
+## 7. 環境変数
 
 ```bash
 # Firebase
