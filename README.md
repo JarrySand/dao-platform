@@ -77,16 +77,16 @@ src/
 
 ## Available Scripts
 
-| Command              | Description                      |
-|----------------------|----------------------------------|
-| `npm run dev`        | Start development server         |
-| `npm run build`      | Create production build          |
-| `npm run start`      | Start production server          |
-| `npm run lint`       | Run ESLint                       |
-| `npm run typecheck`  | Run TypeScript type checking     |
-| `npm run test`       | Run tests                        |
-| `npm run test:watch` | Run tests in watch mode          |
-| `npm run format`     | Format code with Prettier        |
+| Command              | Description                  |
+| -------------------- | ---------------------------- |
+| `npm run dev`        | Start development server     |
+| `npm run build`      | Create production build      |
+| `npm run start`      | Start production server      |
+| `npm run lint`       | Run ESLint                   |
+| `npm run typecheck`  | Run TypeScript type checking |
+| `npm run test`       | Run tests                    |
+| `npm run test:watch` | Run tests in watch mode      |
+| `npm run format`     | Format code with Prettier    |
 
 ## Documentation
 

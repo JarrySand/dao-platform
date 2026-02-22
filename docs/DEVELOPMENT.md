@@ -29,17 +29,17 @@ cp .env.example .env.local
 
 Required variables:
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase project API key |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project ID |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase app ID |
-| `NEXT_PUBLIC_PINATA_JWT` | Pinata JWT for IPFS uploads |
-| `NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID` | EAS Document v2 schema UID (Sepolia) |
-| `NEXT_PUBLIC_SEPOLIA_RPC_URL` | Sepolia RPC endpoint |
+| Variable                                   | Description                          |
+| ------------------------------------------ | ------------------------------------ |
+| `NEXT_PUBLIC_FIREBASE_API_KEY`             | Firebase project API key             |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`         | Firebase auth domain                 |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID`          | Firebase project ID                  |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`      | Firebase storage bucket              |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID         |
+| `NEXT_PUBLIC_FIREBASE_APP_ID`              | Firebase app ID                      |
+| `NEXT_PUBLIC_PINATA_JWT`                   | Pinata JWT for IPFS uploads          |
+| `NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID`       | EAS Document v2 schema UID (Sepolia) |
+| `NEXT_PUBLIC_SEPOLIA_RPC_URL`              | Sepolia RPC endpoint                 |
 
 ### 3. MetaMask setup
 
@@ -57,15 +57,15 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Available Scripts
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start development server |
-| `npm run build` | Production build |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run test` | Run tests with Vitest |
+| Script                  | Description                    |
+| ----------------------- | ------------------------------ |
+| `npm run dev`           | Start development server       |
+| `npm run build`         | Production build               |
+| `npm run lint`          | Run ESLint                     |
+| `npm run typecheck`     | Run TypeScript type checking   |
+| `npm run test`          | Run tests with Vitest          |
 | `npm run test:coverage` | Run tests with coverage report |
-| `npm run format` | Format code with Prettier |
+| `npm run format`        | Format code with Prettier      |
 
 ## Directory Structure
 

@@ -24,7 +24,7 @@ export const CHAIN_CONFIG = {
       documentV2: {
         uid:
           process.env.NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID ||
-          '0x0000000000000000000000000000000000000000000000000000000000000000',
+          '0xe902a5f06139377b16d7960b69c3469c88090224f2ff694cd7c2a86f86182e99',
         schema:
           'bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, string version, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId',
       },

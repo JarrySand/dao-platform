@@ -9,6 +9,7 @@ If you discover a security vulnerability, please report it responsibly.
 Instead, please send a report to: **security@example.com**
 
 Include:
+
 - A description of the vulnerability
 - Steps to reproduce
 - Potential impact
@@ -18,7 +19,7 @@ We will acknowledge your report within 48 hours and aim to provide a fix within 
 
 ## Supported Versions
 
-| Version       | Supported |
-|---------------|-----------|
-| 0.2.x-alpha   | Yes       |
-| < 0.2.0       | No        |
+| Version     | Supported |
+| ----------- | --------- |
+| 0.2.x-alpha | Yes       |
+| < 0.2.0     | No        |

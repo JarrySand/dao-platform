@@ -52,9 +52,7 @@ describe('walletStore', () => {
   });
 
   it('connect detects wrong network', async () => {
-    mockEthereum.request
-      .mockResolvedValueOnce(mockAccounts)
-      .mockResolvedValueOnce('0x1'); // mainnet, not Sepolia
+    mockEthereum.request.mockResolvedValueOnce(mockAccounts).mockResolvedValueOnce('0x1'); // mainnet, not Sepolia
 
     await useWalletStore.getState().connect();
 
