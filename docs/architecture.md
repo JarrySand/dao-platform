@@ -52,10 +52,25 @@
 | ---------- | ----------------------- | ---------- | ------------------------ |
 | DB         | Firebase Firestore      | 11         | 可変メタデータ保存       |
 | 認証       | Firebase Authentication | 11         | メール/パスワード認証    |
-| ストレージ | IPFS (要評価)           | -          | ドキュメントファイル保存 |
+| ストレージ | Pinata (IPFS)           | latest     | ドキュメントファイル保存 |
 
 **v1からの変更点**: Firebase Auth を正式採用（v1は localStorage ベース）
-**要評価**: nft.storage vs Pinata vs w3up — Alpha 前に安定性確認
+
+**IPFS プロバイダー決定:**
+
+- **プライマリ: Pinata** — v1 で実績あり（nft.storage 停止後のフォールバック先として既に運用中）
+- **フォールバック: w3up-client** — Pinata 障害時の代替（package.json に既に導入済み）
+- nft.storage は完全廃止（v1 コードに「サービス停止」の記載あり）
+
+| 項目             | 仕様                                      |
+| ---------------- | ----------------------------------------- |
+| プロバイダー     | Pinata（JWT 認証）                        |
+| フォールバック   | w3up-client                               |
+| アップロード上限 | 10MB/ファイル                             |
+| ゲートウェイ     | `https://gateway.pinata.cloud/ipfs/{CID}` |
+| タイムアウト     | 30秒（リトライ2回、指数バックオフ）       |
+| ピン保持         | 永続（Pinata Free/Pro プランに依存）      |
+| 環境変数         | `PINATA_JWT`（サーバーサイドのみ）        |
 
 ### 1.6 開発ツール
 
@@ -355,7 +370,61 @@ src/
 
 ---
 
-## 3. データフロー
+## 3. EAS スキーマ互換性
+
+### 3.1 方針: v1 スキーマをそのまま再利用
+
+v1 で Sepolia テストネットにデプロイ済みの EAS スキーマは **v2 でもそのまま使用**する。
+EAS アテステーションはオンチェーンで不変であり、スキーマ変更は新規デプロイが必要になるため、
+既存スキーマを維持し、追加データは Firebase メタデータで管理する。
+
+### 3.2 スキーマ UID（Sepolia）
+
+```
+DAO スキーマ:
+  UID: 0x087cc98cb9696a0b70363e43ac372f19db9da2ed6a84bbaf3b4b86b039c5f9e1
+  定義: "string daoUID, string daoName, address adminAddress"
+
+Document スキーマ:
+  UID: 0xbc9fcde5f231a0df136d1685c8d9c043c857ab7135b0b7ba0fe8c6567bcbc152
+  定義: "string daoAttestationUID, string documentTitle, string documentType,
+         string documentVersion, string documentHash, string ipfsCID,
+         string previousVersionUID"
+```
+
+### 3.3 v2 新機能のデータ配置
+
+| 新機能             | EAS（不変）                                        | Firebase（可変）                                             |
+| ------------------ | -------------------------------------------------- | ------------------------------------------------------------ |
+| 投票ドキュメント   | documentType = `'voting'` として既存スキーマで作成 | txHash, txChainId, txBlockNumber, votingContract, proposalId |
+| バージョン管理     | previousVersionUID（既にスキーマに存在）           | バージョン番号のキャッシュ                                   |
+| ダッシュボード統計 | —                                                  | アテステーション数・アクティビティの集計キャッシュ           |
+| メンバー管理 [P1]  | —                                                  | members[], roles[]                                           |
+
+### 3.4 スキーマ設定の管理
+
+```typescript
+// config/chains.ts
+export const CHAIN_CONFIG = {
+  sepolia: {
+    chainId: 11155111,
+    easContractAddress: "0xC2679fBD37d54388Ce493F1DB75320D236e1815e",
+    schemaRegistryAddress: "0x0a7E2Ff54e76B8E6659aedc9103FB21c038050D0",
+    schemas: {
+      dao: "0x087cc98cb9696a0b70363e43ac372f19db9da2ed6a84bbaf3b4b86b039c5f9e1",
+      document:
+        "0xbc9fcde5f231a0df136d1685c8d9c043c857ab7135b0b7ba0fe8c6567bcbc152",
+    },
+    graphqlEndpoint: "https://sepolia.easscan.org/graphql",
+    explorerUrl: "https://sepolia.etherscan.io",
+  },
+  // マルチチェーン対応時に追加（Post-Alpha）
+} as const;
+```
+
+---
+
+## 4. データフロー
 
 ### 3.1 読み取りフロー
 
@@ -429,7 +498,7 @@ VotingDocumentForm (DocumentRegisterForm を拡張)
 
 ---
 
-## 4. v1 → v2 改善マッピング
+## 5. v1 → v2 改善マッピング
 
 ### 4.1 コード構造
 
@@ -467,7 +536,7 @@ VotingDocumentForm (DocumentRegisterForm を拡張)
 
 ---
 
-## 5. EAS クエリ最適化戦略
+## 6. EAS クエリ最適化戦略
 
 v1 では EAS GraphQL クエリに深刻なパフォーマンス問題がある。v2 では以下の戦略で解決する。
 
@@ -646,7 +715,7 @@ shared/lib/eas/
 
 ---
 
-## 6. 設定ファイル一覧
+## 7. 設定ファイル一覧
 
 | ファイル                   | 用途                                   |
 | -------------------------- | -------------------------------------- |
@@ -663,7 +732,7 @@ shared/lib/eas/
 
 ---
 
-## 7. 環境変数
+## 8. 環境変数
 
 ```bash
 # Firebase
@@ -698,3 +767,466 @@ NODE_ENV=development
 
 - `NEXT_PUBLIC_` プレフィックス: クライアントに公開OK
 - プレフィックスなし: サーバーサイドのみ（API キー等）
+
+---
+
+## 9. 認証・セッション管理
+
+### 9.1 認証フロー
+
+```
+┌─────────────────────────────────────────────────┐
+│  認証方式1: メール/パスワード                     │
+│                                                   │
+│  サインアップ                                     │
+│    1. メール + パスワード入力                     │
+│    2. Firebase Auth createUserWithEmailAndPassword │
+│    3. 確認メール送信（Firebase 自動）             │
+│    4. メール確認後にアカウント有効化               │
+│                                                   │
+│  ログイン                                         │
+│    1. メール + パスワード入力                     │
+│    2. Firebase Auth signInWithEmailAndPassword     │
+│    3. Firebase ID トークン取得                     │
+│    4. Zustand authStore に保存                     │
+│                                                   │
+│  パスワードリセット                               │
+│    1. メール入力                                   │
+│    2. Firebase Auth sendPasswordResetEmail          │
+│    3. メールのリンクからリセットフォームへ         │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│  認証方式2: ウォレット接続                        │
+│                                                   │
+│  接続                                             │
+│    1. MetaMask window.ethereum.request             │
+│    2. eth_requestAccounts → アドレス取得           │
+│    3. Zustand walletStore に保存                   │
+│    4. チェーンID 確認 → Sepolia でなければ切替要求 │
+│                                                   │
+│  認証はウォレット署名で行わない（Alpha）           │
+│    → ウォレットアドレスは「操作権限の証明」に使用  │
+│    → DAO 管理者 = adminAddress 一致チェック        │
+│    → EAS アテステーション作成時に Signer として使用│
+└─────────────────────────────────────────────────┘
+```
+
+### 9.2 メール認証とウォレットの関係
+
+- メール認証: ログイン状態の管理（セッション）
+- ウォレット接続: ブロックチェーン操作の権限（EAS アテステーション作成・失効）
+- **アカウントリンクは Alpha では行わない** — 別々に管理
+- 保護ルート（`/my-dao/*`, `/dashboard`）はメール認証が必須
+- ブロックチェーン操作（DAO 作成、ドキュメント登録）はウォレット接続も必須
+
+### 9.3 セッション管理
+
+| 項目               | 仕様                                                            |
+| ------------------ | --------------------------------------------------------------- |
+| トークン           | Firebase ID Token（JWT、1時間有効）                             |
+| リフレッシュ       | Firebase SDK 自動リフレッシュ（`onIdTokenChanged`）             |
+| 永続化             | Firebase Auth の `browserLocalPersistence`                      |
+| ログアウト         | Firebase signOut + Zustand 全ストア reset + localStorage クリア |
+| ウォレット変更検知 | `window.ethereum.on('accountsChanged')` → walletStore 更新      |
+| チェーン変更検知   | `window.ethereum.on('chainChanged')` → ページリロード           |
+
+### 9.4 認証ガード
+
+```typescript
+// features/auth/components/AuthGuard.tsx
+// (auth) Route Group の layout.tsx で使用
+
+function AuthGuard({ children }: { children: ReactNode }) {
+  const { user, isLoading } = useAuthStore();
+  const router = useRouter();
+
+  if (isLoading) return <LoadingSpinner />;
+  if (!user) {
+    router.replace('/login?redirect=' + pathname);
+    return null;
+  }
+  return <>{children}</>;
+}
+```
+
+---
+
+## 10. エラーハンドリング・トランザクション管理
+
+### 10.1 エラー分類マトリクス
+
+| エラー種別                    | リトライ             | 最大回数 | バックオフ        | ユーザー表示                               |
+| ----------------------------- | -------------------- | -------- | ----------------- | ------------------------------------------ |
+| IPFS アップロードタイムアウト | 可                   | 3        | 指数（1s→5s→15s） | 「アップロードを再試行しています...」      |
+| IPFS アップロード失敗         | 可（フォールバック） | 1        | —                 | Pinata→w3up 切替、それも失敗→エラー        |
+| EAS GraphQL タイムアウト      | 可                   | 3        | 指数（2s→8s→30s） | 「データを取得しています...」              |
+| EAS GraphQL レート制限        | 可                   | 3        | 固定（60s）       | 「しばらくお待ちください」                 |
+| EAS TX ユーザー拒否           | 不可                 | —        | —                 | 「トランザクションがキャンセルされました」 |
+| EAS TX Gas 不足               | 不可                 | —        | —                 | 「ETH 残高が不足しています」               |
+| EAS TX revert                 | 不可                 | —        | —                 | 「トランザクションが失敗しました」         |
+| Firebase 書き込み失敗         | 可                   | 2        | 固定（3s）        | 「データ保存を再試行しています...」        |
+| Firebase オフライン           | 可                   | ∞        | Firebase SDK 自動 | 「オフラインです。接続後に同期されます」   |
+| ネットワーク切断              | 可                   | —        | 自動検知          | 「ネットワーク接続を確認してください」     |
+| Zod バリデーション            | 不可                 | —        | —                 | フィールド単位のエラー表示                 |
+
+### 10.2 ブロックチェーントランザクション管理
+
+```
+DAO 作成 / ドキュメント登録のトランザクションフロー:
+
+  [1. 準備]
+    ├─ フォームバリデーション（Zod）
+    ├─ ウォレット接続確認
+    └─ チェーンID 確認（Sepolia でなければ切替）
+
+  [2. Gas 見積もり]
+    ├─ EAS SDK attestByDelegation.estimateGas()
+    ├─ 成功 → Gas 見積もりを UI に表示
+    └─ 失敗 → 「Gas 見積もりに失敗しました」+ デフォルト値で続行オプション
+
+  [3. トランザクション送信]
+    ├─ UI: 「ウォレットで承認してください...」
+    ├─ ユーザーが MetaMask で承認
+    └─ ユーザーが拒否 → フロー中断、エラートースト
+
+  [4. 確認待ち]
+    ├─ UI: 「トランザクション処理中... (txHash: 0x...)」
+    ├─ tx.wait() で1ブロック確認を待機
+    ├─ タイムアウト: 120秒（Sepolia のブロック時間考慮）
+    └─ タイムアウト → 「トランザクションの確認に時間がかかっています」
+         └─ Etherscan リンクを表示して手動確認を案内
+
+  [5. 後処理]
+    ├─ EAS アテステーション UID 取得
+    ├─ Firebase メタデータ保存
+    ├─ Firebase 保存失敗 → EAS は成功済みなのでリトライ
+    ├─ TanStack Query キャッシュ invalidate
+    └─ UI: 成功メッセージ + 作成したリソースへリダイレクト
+```
+
+### 10.3 マルチステップ操作のロールバック
+
+ドキュメント登録は4ステップの順序依存操作。途中失敗時の対応:
+
+| 失敗箇所              | 前ステップの状態    | 対応                                                          |
+| --------------------- | ------------------- | ------------------------------------------------------------- |
+| Step 1 (ハッシュ計算) | なし                | 即リトライ                                                    |
+| Step 2 (IPFS)         | なし                | リトライ or フォールバック                                    |
+| Step 3 (EAS TX)       | IPFS にファイルあり | 放置可（IPFS は自動 GC）、リトライ                            |
+| Step 4 (Firebase)     | IPFS + EAS 済み     | **必ずリトライ**（EAS は不変、Firebase なしだとデータ不整合） |
+
+---
+
+## 11. API セキュリティ設計
+
+### 11.1 API ルート認証要件
+
+| エンドポイント   | メソッド | 認証          | 追加チェック                                                            |
+| ---------------- | -------- | ------------- | ----------------------------------------------------------------------- |
+| `/api/daos`      | GET      | 不要          | —                                                                       |
+| `/api/daos`      | POST     | Firebase Auth | ウォレットアドレス検証（EAS アテステーション作成者 = リクエスト送信者） |
+| `/api/daos/[id]` | GET      | 不要          | —                                                                       |
+| `/api/daos/[id]` | PUT      | Firebase Auth | adminAddress 一致チェック                                               |
+| `/api/daos/[id]` | DELETE   | Firebase Auth | adminAddress 一致チェック                                               |
+| `/api/documents` | POST     | Firebase Auth | DAO 管理者 or editor ロール（P1）                                       |
+| `/api/upload`    | POST     | Firebase Auth | ファイルサイズ 10MB 上限                                                |
+| `/api/eas-proxy` | POST     | 不要          | レート制限のみ                                                          |
+
+### 11.2 認証ミドルウェア
+
+```typescript
+// shared/lib/api-client.ts (サーバーサイド)
+import { getAuth } from "firebase-admin/auth";
+
+async function verifyAuth(request: NextRequest): Promise<DecodedIdToken> {
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new ApiError(401, "Authorization header required");
+  }
+  const token = authHeader.split("Bearer ")[1];
+  return getAuth().verifyIdToken(token);
+}
+```
+
+### 11.3 入力バリデーション
+
+全 API ルートで Zod スキーマによるバリデーション:
+
+```typescript
+// features/dao/types/index.ts
+const CreateDAOSchema = z.object({
+  attestationUID: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  name: z.string().min(1).max(100),
+  description: z.string().max(2000).optional(),
+  location: z.string().max(200).optional(),
+  memberCount: z.number().int().min(0).optional(),
+  logoUrl: z.string().url().optional(),
+});
+```
+
+### 11.4 レート制限
+
+| エンドポイント   | 制限   | 単位         |
+| ---------------- | ------ | ------------ |
+| `/api/eas-proxy` | 30 req | /分/IP       |
+| `/api/upload`    | 10 req | /分/ユーザー |
+| `/api/daos` POST | 5 req  | /分/ユーザー |
+| その他 GET       | 60 req | /分/IP       |
+
+**実装:** Alpha では `Map<IP, {count, resetTime}>` のインメモリ制限。Post-Alpha で Upstash Redis に移行。
+
+### 11.5 Firestore セキュリティルール
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // DAOs: 誰でも読み取り可、認証済みユーザーのみ書き込み
+    match /daos/{daoId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null;
+      // Note: adminAddress チェックは API Route 側で実施
+    }
+
+    // Documents: 誰でも読み取り可、認証済みユーザーのみ書き込み
+    match /documents/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null;
+    }
+  }
+}
+```
+
+---
+
+## 12. 状態管理設計（Zustand）
+
+### 12.1 ストア構成
+
+```typescript
+// features/auth/stores/authStore.ts
+interface AuthState {
+  user: {
+    uid: string;
+    email: string;
+    emailVerified: boolean;
+  } | null;
+  isLoading: boolean;
+  isInitialized: boolean; // Firebase Auth の初期化完了フラグ
+}
+
+interface AuthActions {
+  setUser: (user: AuthState["user"]) => void;
+  setLoading: (loading: boolean) => void;
+  logout: () => void; // Firebase signOut + 全ストア reset
+  initialize: () => () => void; // onAuthStateChanged リスナー登録、クリーンアップ関数を返す
+}
+
+type AuthStore = AuthState & AuthActions;
+```
+
+```typescript
+// features/wallet/stores/walletStore.ts
+interface WalletState {
+  address: string | null;
+  chainId: number | null;
+  isConnecting: boolean;
+}
+
+interface WalletActions {
+  connect: () => Promise<void>; // eth_requestAccounts
+  disconnect: () => void; // ストアクリア
+  switchChain: (chainId: number) => Promise<void>; // wallet_switchEthereumChain
+  setupListeners: () => () => void; // accountsChanged, chainChanged
+}
+
+type WalletStore = WalletState & WalletActions;
+```
+
+### 12.2 永続化・SSR 対応
+
+```typescript
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+
+const useWalletStore = create<WalletStore>()(
+  persist(
+    (set, get) => ({
+      /* ... */
+    }),
+    {
+      name: "wallet-store",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        address: state.address, // 永続化する
+        chainId: state.chainId, // 永続化する
+        // isConnecting は永続化しない
+      }),
+    },
+  ),
+);
+```
+
+**SSR ハイドレーション対策:**
+
+```typescript
+// shared/hooks/useHydration.ts
+// SSR 時は localStorage が存在しないためハイドレーションミスマッチを防ぐ
+function useHydration() {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  return hydrated;
+}
+```
+
+### 12.3 ストア間の連携
+
+```
+authStore.logout()
+  ├─ Firebase signOut()
+  ├─ authStore.reset()
+  ├─ walletStore.disconnect()
+  └─ TanStack Query queryClient.clear()
+
+walletStore.connect()
+  └─ 成功後、TanStack Query で My DAO 一覧を prefetch
+
+window.ethereum 'accountsChanged'
+  ├─ walletStore.address 更新
+  └─ TanStack Query の myDAOs キャッシュを invalidate
+```
+
+---
+
+## 13. デプロイ・環境管理
+
+### 13.1 環境構成
+
+| 環境        | 用途          | Firebase プロジェクト | チェーン         | デプロイ先        |
+| ----------- | ------------- | --------------------- | ---------------- | ----------------- |
+| development | ローカル開発  | dao-platform-dev      | Sepolia          | localhost:3000    |
+| preview     | PR プレビュー | dao-platform-dev      | Sepolia          | Vercel Preview    |
+| production  | 本番          | dao-platform-prod     | Sepolia（Alpha） | Vercel Production |
+
+**Alpha では Sepolia 固定。** mainnet 移行は Post-Alpha。
+**Firebase プロジェクトは2つ:** dev（開発+プレビュー共用）と prod（本番のみ）。
+
+### 13.2 Vercel 環境変数設定
+
+```
+Vercel Dashboard → Settings → Environment Variables
+
+変数ごとに適用環境を指定:
+  - Production のみ: PINATA_JWT (本番キー)
+  - Preview + Development: PINATA_JWT (テストキー)
+  - 全環境共通: NEXT_PUBLIC_CHAIN_ID, NEXT_PUBLIC_EAS_* (Sepolia 設定)
+```
+
+### 13.3 CI/CD パイプライン
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test -- --coverage
+      - run: npm run build
+```
+
+### 13.4 シークレットローテーション
+
+| シークレット       | ローテーション方法                           | ダウンタイム                 |
+| ------------------ | -------------------------------------------- | ---------------------------- |
+| PINATA_JWT         | Vercel ダッシュボードで更新 → 自動再デプロイ | なし（次リクエストから適用） |
+| Firebase API Key   | Firebase Console → Vercel 更新               | なし                         |
+| Firebase Admin SDK | サービスアカウントキー再生成 → Vercel 更新   | 数秒（再デプロイ中）         |
+
+---
+
+## 14. データ移行戦略（v1 → v2）
+
+### 14.1 移行対象
+
+| データ                           | 保存先                   | 件数（想定） | 移行方針                                                           |
+| -------------------------------- | ------------------------ | ------------ | ------------------------------------------------------------------ |
+| EAS アテステーション（DAO）      | Sepolia ブロックチェーン | 〜50         | **移行不要**（オンチェーン、v2 から同じスキーマ UID で読み取り可） |
+| EAS アテステーション（Document） | Sepolia ブロックチェーン | 〜200        | **移行不要**（同上）                                               |
+| Firebase DAO メタデータ          | Firestore `daos/`        | 〜50         | **スキーマ検証 + 補完**                                            |
+| Firebase Document メタデータ     | Firestore `documents/`   | 〜200        | **スキーマ検証 + 補完**                                            |
+| IPFS ドキュメントファイル        | Pinata                   | 〜200        | **移行不要**（CID は不変、ゲートウェイ URL 統一のみ）              |
+| ユーザーアカウント               | localStorage             | 少数         | **再作成**（Firebase Auth で新規登録を案内）                       |
+
+### 14.2 移行が必要なもの
+
+**Firebase メタデータの v2 スキーマ適合:**
+
+v1 の Firebase データには v2 で追加されるフィールドが存在しない。
+v2 の初回読み取り時にデフォルト値を補完する「遅延移行」方式を採用する。
+
+```typescript
+// shared/lib/firebase/types.ts
+function normalizeDAOMetadata(raw: Record<string, unknown>): FirebaseDAOData {
+  return {
+    description: raw.description ?? "",
+    location: raw.location ?? "",
+    memberCount: raw.memberCount ?? 0,
+    trustScore: raw.trustScore ?? 0,
+    status: raw.status ?? "active",
+    foundingDate: raw.foundingDate ?? null,
+    logoUrl: raw.logoUrl ?? "",
+    website: raw.website ?? "",
+    contactEmail: raw.contactEmail ?? "",
+    contactPerson: raw.contactPerson ?? "",
+    documents: raw.documents ?? [],
+    createdAt: raw.createdAt ?? new Date(),
+    updatedAt: raw.updatedAt ?? new Date(),
+  };
+}
+```
+
+### 14.3 移行が不要なもの
+
+- **EAS アテステーション**: オンチェーンデータは不変。v2 は同じスキーマ UID で読み取るため、移行作業なし
+- **IPFS ファイル**: CID ベースのアドレッシング。ゲートウェイ URL を `shared/lib/ipfs/gateway.ts` で統一管理
+- **EAS スキーマ**: v1 と同一スキーマを再利用（§3 参照）
+
+### 14.4 ユーザーアカウント移行
+
+v1 は localStorage ベースの独自認証（デモ認証含む）。v2 は Firebase Auth に完全移行。
+
+- **自動移行は行わない** — v1 のユーザーデータにパスワードハッシュ等がないため不可能
+- v2 初回アクセス時にサインアップを案内
+- ウォレットアドレスで既存 DAO の管理者であることは EAS データから自動的に紐付く
+
+### 14.5 移行スケジュール
+
+```
+Phase 1: v2 デプロイ（v1 と並行稼働）
+  - v2 は v1 と同じ Firebase プロジェクト・EAS スキーマを参照
+  - 既存データは自動的に v2 から閲覧可能
+
+Phase 2: v1 トラフィック移行
+  - DNS を v2 に切替
+  - v1 は読み取り専用で一定期間維持
+
+Phase 3: v1 廃止
+  - v1 のデプロイを停止
+  - localStorage 依存コードを完全削除
+```
