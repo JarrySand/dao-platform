@@ -181,6 +181,8 @@ src/
 │   │   │   ├── DocumentRegisterForm.tsx   # マルチステップウィザード
 │   │   │   ├── DocumentVerifier.tsx
 │   │   │   ├── DocumentVersionHistory.tsx # [NEW]
+│   │   │   ├── VotingDocumentForm.tsx     # [NEW] 投票ドキュメント登録（TX紐付け）
+│   │   │   ├── TransactionInfo.tsx        # [NEW] リンク済みTX情報表示
 │   │   │   ├── FileUploader.tsx           # D&D対応
 │   │   │   ├── FileHashCalculator.tsx
 │   │   │   └── index.ts
@@ -189,6 +191,7 @@ src/
 │   │   │   ├── useDocument.ts
 │   │   │   ├── useRegisterDocument.ts
 │   │   │   ├── useDocumentVersions.ts     # [NEW]
+│   │   │   ├── useTransactionInfo.ts      # [NEW] TX情報取得・検証
 │   │   │   └── index.ts
 │   │   ├── types/
 │   │   │   └── index.ts
@@ -400,6 +403,27 @@ DocumentRegisterForm (マルチステップ)
        └─ Step 4: Firebase メタデータ保存（API Route）
 
        各ステップで onProgress コールバック → UI 進捗表示
+```
+
+### 3.4 投票ドキュメント登録フロー [NEW]
+
+```
+VotingDocumentForm (DocumentRegisterForm を拡張)
+  │
+  └─ useRegisterDocument mutation
+       │
+       ├─ Step 1: SHA-256 ハッシュ計算（クライアント）
+       ├─ Step 2: IPFS アップロード（API Route /api/upload）
+       ├─ Step 3: EAS アテステーション作成（クライアント、documentType = 'voting'）
+       └─ Step 4: Firebase メタデータ保存（API Route）
+            └─ 追加フィールド（Firebase のみ）:
+                 ├─ txHash:          投票トランザクションハッシュ
+                 ├─ txChainId:       投票が実行されたチェーンID
+                 ├─ txBlockNumber:   ブロック番号（任意、自動取得可）
+                 ├─ votingContract:  投票コントラクトアドレス（任意）
+                 └─ proposalId:      投票提案ID（任意）
+
+※ EAS スキーマは変更しない。TX紐付け情報は Firebase メタデータとして保存。
 ```
 
 ---
