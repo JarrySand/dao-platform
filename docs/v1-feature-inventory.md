@@ -244,19 +244,21 @@
 
 ## 7. データモデル
 
-### 7.1 EAS スキーマ（ブロックチェーン・不変）
+### 7.1 EAS スキーマ（ブロックチェーン・不変、Sepolia デプロイ済み）
 
-**DAO Schema**:
-
-```
-string name, address adminAddress
-```
-
-**Document Schema**:
+**DAO Schema** (UID: `0x087cc98cb...`):
 
 ```
-bytes32 daoAttestationUID, string documentTitle, string documentType, string documentVersion, bytes32 documentHash, string ipfsCID, bytes32 previousVersionUID
+string daoUID, string daoName, address adminAddress
 ```
+
+**Document Schema** (UID: `0xbc9fcde5f...`):
+
+```
+bytes32 daoAttestationUID, string documentTitle, bytes32 documentHash, string ipfsCid, string version, bytes32 previousVersionId
+```
+
+> **注意**: v1 Document スキーマには `documentType` フィールドが**存在しない**。v1 では `easQuery.ts` の `inferDocumentType()` でタイトルからタイプを推測していた。v2 では documentType を含む新スキーマをデプロイする（architecture.md §3 参照）。
 
 ### 7.2 Firebase コレクション
 
@@ -301,20 +303,22 @@ interface Document {
   type: DocumentType;
   version: string;
   hash: string;
-  ipfsCID: string;
-  previousVersionUID: string;
-  // ...FirebaseDocumentData
+  ipfsCid: string;
+  previousVersionId: string;
+  // ...FirebaseDAOData（表示用メタデータ）
 }
 
-type DocumentType = 'articles' | 'meeting' | 'token' | 'operation' | 'other';
+// v1: "voting" なし（v2 で追加）
+type DocumentType = "articles" | "meeting" | "token" | "operation" | "other";
+// v2: "voting" | "unknown"（v1後方互換）を追加予定
 
 interface User {
   id: string;
   email?: string;
   walletAddress?: string;
-  authType: 'email' | 'wallet';
-  role: 'admin' | 'member' | 'operator' | 'superadmin';
-  status: 'active' | 'inactive';
+  authType: "email" | "wallet";
+  role: "admin" | "member" | "operator" | "superadmin";
+  status: "active" | "inactive";
 }
 ```
 
