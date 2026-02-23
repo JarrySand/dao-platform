@@ -1,0 +1,1 @@
+export { buildDocumentFromAttestation } from './documentService';

@@ -1,162 +1,100 @@
-# 📋 DAO Document Platform
+# DAO Document Platform
 
-Web3技術を活用したDAOの定款・規程文書管理プラットフォーム
+A decentralized platform for managing DAO governance documents with blockchain-verified authenticity and immutability. Built on Ethereum Attestation Service (EAS) for trustless document verification.
 
-## 🎯 概要
+## Tech Stack
 
-### 目的
-DAOの定款や規程文書の真正性をブロックチェーン技術で保証し、透明性と不変性を実現するプラットフォームです。スマートコントラクトに近い性質を持つDAO文書の管理により、実社会で実行力のある執行を可能にします。
+- **Framework**: Next.js 15 (App Router) + React 19
+- **Language**: TypeScript (strict mode)
+- **Styling**: Tailwind CSS v4
+- **State Management**: Zustand + TanStack Query
+- **Blockchain**: Ethereum (Sepolia), EAS SDK, ethers.js v6
+- **Storage**: IPFS (Pinata), Firebase Firestore
+- **Auth**: Firebase Authentication
+- **Testing**: Vitest, Testing Library, MSW
 
-### 主要な特徴
-- **透明性**: すべてのDAO文書を一般公開し、誰でも閲覧可能
-- **不変性**: ブロックチェーン技術により文書の改変を防止・検知
-- **検証可能性**: 文書のハッシュ値をオンチェーンで記録し、真正性を証明
-- **バージョン管理**: 文書の変更履歴を完全に追跡
-
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
-# 1. リポジトリのクローン
-git clone [repository-url]
+# Clone the repository
+git clone <repository-url>
 cd dao-platform
 
-# 2. 依存関係のインストール
+# Install dependencies
 npm install
 
-# 3. 環境変数の設定
-cp env.example .env.local
-# .env.local を編集して必要な値を設定
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your values
 
-# 4. 開発サーバー起動
+# Start development server
 npm run dev
 ```
 
-ブラウザで `http://localhost:3000` を開いてアクセス
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## 🌟 主要機能
+## Features
 
-### 一般ユーザー向け
-- **DAO検索・閲覧**: 登録されているDAO一覧の検索・フィルタリング
-- **文書閲覧**: DAO の定款・規程文書の閲覧
-- **真正性検証**: 文書のハッシュ値とブロックチェーン記録の照合
-- **透明性確保**: すべての文書変更履歴の公開
+### Public Users
 
-### DAO運営者向け
-- **DAO登録・管理**: 基本情報の登録・編集
-- **文書管理**: 定款・規程文書のアップロード・更新・バージョン管理
-- **ブロックチェーン証明**: EAS（Ethereum Attestation Service）による文書証明
-- **IPFS連携**: 分散ストレージへの文書保存
+- Browse and search registered DAOs
+- View DAO governance documents (articles of association, bylaws)
+- Verify document authenticity against on-chain attestations
+- View full document version history
 
-## 🏗️ 技術スタック
+### DAO Administrators
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
-- **Blockchain**: Ethereum (Sepolia), EAS, ethers.js v6
-- **Storage**: IPFS, Firebase Firestore
-- **Wallet**: MetaMask
-- **Authentication**: Firebase Auth
+- Register and manage DAO profiles
+- Upload and version governance documents
+- Create blockchain attestations (EAS) for document integrity
+- Store documents on IPFS for decentralized availability
 
-## 🔧 開発環境セットアップ
+## Architecture
 
-### 前提条件
-- Node.js 18+
-- MetaMaskウォレット（DAO管理者のみ）
-- Sepolia testnet ETH（DAO管理者のみ）
+This project follows **Feature-Sliced Design (FSD)** principles:
 
-### 環境変数設定
-`.env.local` ファイルに以下の設定が必要です：
-
-```bash
-# ===========================================
-# Firebase Configuration
-# ===========================================
-NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-
-# ===========================================
-# EAS (Ethereum Attestation Service) Configuration
-# ===========================================
-NEXT_PUBLIC_DAO_SCHEMA_UID=your_dao_schema_uid
-NEXT_PUBLIC_DOCUMENT_SCHEMA_UID=your_document_schema_uid
-NEXT_PUBLIC_EAS_CONTRACT_ADDRESS=0xC2679fBD37d54388Ce493F1DB75320D236e1815e
-NEXT_PUBLIC_SCHEMA_REGISTRY_ADDRESS=0x0a7E2Ff54e76B8E6659aedc9103FB21c038050D0
-NEXT_PUBLIC_EAS_GRAPHQL_URL=https://sepolia.easscan.org/graphql
-
-# ===========================================
-# Network Configuration
-# ===========================================
-NEXT_PUBLIC_ETHEREUM_NETWORK=sepolia
-NEXT_PUBLIC_CHAIN_ID=11155111
-NEXT_PUBLIC_SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID
-
-# ===========================================
-# IPFS Configuration
-# ===========================================
-NEXT_PUBLIC_IPFS_GATEWAY=https://nftstorage.link/ipfs/
-NEXT_PUBLIC_PINATA_API_KEY=your_pinata_api_key
-NEXT_PUBLIC_PINATA_SECRET_KEY=your_pinata_secret_key
-NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt_token
-
-# ===========================================
-# Development Configuration
-# ===========================================
-NEXT_PUBLIC_DEBUG=true
-NEXT_PUBLIC_ENABLE_LOCALSTORAGE_FALLBACK=true
-
-# ===========================================
-# Production Security Configuration
-# ===========================================
-NEXT_PUBLIC_FORCE_HTTPS=false
-NEXT_PUBLIC_CSP_ENABLED=false
+```
+src/
+  app/          # Next.js App Router pages and layouts
+  config/       # Application configuration
+  features/     # Feature modules (auth, wallet, dao, document, dashboard)
+    <feature>/
+      api/        # API client functions
+      components/ # Feature-specific UI components
+      hooks/      # Feature-specific React hooks
+      stores/     # Zustand state stores
+      types/      # Feature-specific type definitions
+  shared/       # Shared code used across features
+    components/   # Reusable UI primitives
+    constants/    # App-wide constants and routes
+    hooks/        # Shared React hooks
+    lib/          # External service clients (Firebase, EAS, IPFS)
+    providers/    # React context providers
+    types/        # Shared type definitions
+    utils/        # Utility functions
+  test/         # Test utilities and setup
 ```
 
-### MetaMaskウォレット設定（DAO管理者のみ）
-1. Sepoliaテストネットを追加
-2. [Sepolia Faucet](https://sepoliafaucet.com/) でテストETHを取得
+## Available Scripts
 
-## 📚 使用方法
+| Command              | Description                  |
+| -------------------- | ---------------------------- |
+| `npm run dev`        | Start development server     |
+| `npm run build`      | Create production build      |
+| `npm run start`      | Start production server      |
+| `npm run lint`       | Run ESLint                   |
+| `npm run typecheck`  | Run TypeScript type checking |
+| `npm run test`       | Run tests                    |
+| `npm run test:watch` | Run tests in watch mode      |
+| `npm run format`     | Format code with Prettier    |
 
-### 一般ユーザー（閲覧者）
-1. **DAO検索**: トップページでDAOを検索・フィルタリング
-2. **詳細確認**: 気になるDAOをクリックして詳細情報を確認
-3. **文書閲覧**: 定款・規程文書をダウンロード・閲覧
-4. **真正性検証**: 「EAS検証」ボタンでブロックチェーン証明を確認
+## Documentation
 
-### DAO管理者
-1. **アカウント作成**: 「新規登録」からDAO情報を登録
-2. **ログイン**: 登録したメールアドレスでログイン
-3. **ウォレット接続**: MetaMaskウォレットを接続
-4. **文書管理**: 「マイDAO」から文書のアップロード・管理
-5. **ブロックチェーン証明**: 文書をアップロード時に自動でEAS証明を発行
+- [Development Guide](./docs/DEVELOPMENT.md) - Detailed setup and development instructions
+- [Architecture](./docs/architecture.md) - System architecture and design decisions
+- [Contributing](./CONTRIBUTING.md) - How to contribute
+- [Changelog](./CHANGELOG.md) - Release history
 
-## 🔗 関連ドキュメント
+## License
 
-### 技術仕様
-- **[サービス仕様書](./SERVICE_SPECIFICATION.md)** - EASデータ構造、技術実装の詳細
-- **[本番環境移行計画](./PRODUCTION_DEPLOYMENT_PLAN.md)** - プロダクション環境への移行手順
-
-### 設定
-- **[環境変数サンプル](./env.example)** - 必要な環境変数の設定例
-
-## 🤝 コントリビューション
-
-1. このリポジトリをフォーク
-2. 機能ブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add amazing feature'`)
-4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
-5. プルリクエストを作成
-
-## 📄 ライセンス
-
-このプロジェクトはMITライセンスの下で公開されています。
-
-## 🔧 サポート
-
-質問や問題がある場合は、GitHubのIssueを作成してください。
-
----
-
-**Note**: このプラットフォームは現在Sepoliaテストネット上で動作しています。本番環境での使用前に十分なテストを実施してください。
+This project is licensed under the [MIT License](./LICENSE).
