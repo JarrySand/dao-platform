@@ -21,10 +21,10 @@ describe('setCorsHeaders', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:3001');
   });
 
-  it('rejects unknown origins with empty string', () => {
+  it('does not set Access-Control-Allow-Origin for unknown origins', () => {
     const req = makeRequest('https://evil.example.com');
     const res = setCorsHeaders(NextResponse.json({}), req);
-    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 
   it('allows same-origin requests (no Origin header)', () => {

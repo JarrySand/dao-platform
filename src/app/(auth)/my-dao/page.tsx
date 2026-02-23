@@ -46,7 +46,7 @@ export default function MyDaoPage() {
     );
   }
 
-  const daos = data?.success ? data.data.data : [];
+  const daos = data?.data ?? [];
 
   return (
     <div className="container mx-auto px-4 py-8">

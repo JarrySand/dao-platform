@@ -37,12 +37,11 @@ export function authenticateRequest(request: NextRequest): AuthResult | null {
     // Verify the message contains the claimed address
     if (!message.toLowerCase().includes(address.toLowerCase())) return null;
 
-    // Verify timestamp is within acceptable window
+    // Verify timestamp is present and within acceptable window
     const timestampMatch = message.match(/Timestamp:\s*(\d+)/);
-    if (timestampMatch) {
-      const messageTime = Number(timestampMatch[1]);
-      if (Date.now() - messageTime > AUTH_MESSAGE_MAX_AGE_MS) return null;
-    }
+    if (!timestampMatch) return null;
+    const messageTime = Number(timestampMatch[1]);
+    if (Date.now() - messageTime > AUTH_MESSAGE_MAX_AGE_MS) return null;
 
     // Verify signature recovers to the expected address
     if (!verifyWalletSignature(message, signature, address)) return null;

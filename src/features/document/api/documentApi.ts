@@ -32,7 +32,7 @@ export async function fetchDocument(id: string): Promise<ApiResult<DocumentDetai
 
 export async function revokeDocument(id: string): Promise<ApiResult<{ txHash: string }>> {
   const address = useWalletStore.getState().address;
-  if (!address) throw new Error('ウォレットが接続されていません');
+  if (!address) return { success: false, error: 'ウォレットが接続されていません' };
   const authorization = await createWalletAuthHeader(address);
   return apiClient.put<ApiResult<{ txHash: string }>>(
     `/api/documents/${encodeURIComponent(id)}`,

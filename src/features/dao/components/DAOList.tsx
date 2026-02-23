@@ -48,7 +48,7 @@ export function DAOList() {
     setStatusFilter(value);
   }, []);
 
-  const daos = data?.success ? (data.data.data ?? []) : [];
+  const daos = data?.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -126,7 +126,7 @@ export function DAOList() {
           </div>
 
           {/* Load More */}
-          {data?.success && data.data.hasMore && (
+          {data?.hasMore && (
             <div className="flex justify-center pt-4">
               <Button variant="outline" onClick={() => refetch()}>
                 もっと読み込む

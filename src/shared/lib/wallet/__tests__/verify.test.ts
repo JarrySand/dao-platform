@@ -17,6 +17,20 @@ describe('createVerificationMessage', () => {
     const message = createVerificationMessage('0x1234567890abcdef1234567890abcdef12345678');
     expect(message).toMatch(/Timestamp:\s*\d+/);
   });
+
+  it('includes a nonce', () => {
+    const message = createVerificationMessage('0x1234567890abcdef1234567890abcdef12345678');
+    expect(message).toMatch(/Nonce:\s*.+/);
+  });
+
+  it('generates unique nonce for each call', () => {
+    const address = '0x1234567890abcdef1234567890abcdef12345678';
+    const message1 = createVerificationMessage(address);
+    const message2 = createVerificationMessage(address);
+    const nonce1 = message1.match(/Nonce:\s*(.+)/)?.[1];
+    const nonce2 = message2.match(/Nonce:\s*(.+)/)?.[1];
+    expect(nonce1).not.toBe(nonce2);
+  });
 });
 
 describe('verifyWalletSignature', () => {

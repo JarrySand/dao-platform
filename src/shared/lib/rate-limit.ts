@@ -7,6 +7,7 @@ const rateLimitStore = new Map<string, RateLimitEntry>();
 
 // Cleanup stale entries periodically (every 60s)
 const CLEANUP_INTERVAL_MS = 60_000;
+const MAX_ENTRIES = 10_000;
 let lastCleanup = Date.now();
 
 function cleanupStaleEntries(): void {
@@ -17,6 +18,16 @@ function cleanupStaleEntries(): void {
   for (const [key, entry] of rateLimitStore) {
     if (now > entry.resetTime) {
       rateLimitStore.delete(key);
+    }
+  }
+
+  // Enforce max size — evict oldest entries if still over limit
+  if (rateLimitStore.size > MAX_ENTRIES) {
+    const excess = rateLimitStore.size - MAX_ENTRIES;
+    const iterator = rateLimitStore.keys();
+    for (let i = 0; i < excess; i++) {
+      const key = iterator.next().value;
+      if (key) rateLimitStore.delete(key);
     }
   }
 }

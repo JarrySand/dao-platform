@@ -281,17 +281,27 @@ export async function syncAll(): Promise<{ daoCount: number; documentCount: numb
 
     // Remove legacy (non-v3) documents from Firestore.
     // After sync, docDataMap contains only v3 documents that passed validation.
-    // Any Firestore doc NOT in this set is a leftover from v1/v2 and should be deleted.
+    // Any Firestore doc NOT in this set is a leftover from v1/v2.
+    // Deletion is opt-in via SYNC_DELETE_LEGACY env var to prevent accidental data loss.
     const v3Ids = new Set(docDataMap.keys());
     const legacyIds = [...existingDocs.keys()].filter((id) => !v3Ids.has(id));
-    for (let i = 0; i < legacyIds.length; i += 400) {
-      const batch = writeBatch(db);
-      const chunk = legacyIds.slice(i, i + 400);
-      for (const id of chunk) {
-        batch.delete(doc(db, COLLECTIONS.DOCUMENTS, id));
+    if (legacyIds.length > 0) {
+      if (process.env.SYNC_DELETE_LEGACY === 'true') {
+        for (let i = 0; i < legacyIds.length; i += 400) {
+          const batch = writeBatch(db);
+          const chunk = legacyIds.slice(i, i + 400);
+          for (const id of chunk) {
+            batch.delete(doc(db, COLLECTIONS.DOCUMENTS, id));
+          }
+          await batch.commit();
+          logger.info('sync_deleted_legacy_documents', { count: chunk.length });
+        }
+      } else {
+        logger.info('sync_legacy_documents_skipped', {
+          count: legacyIds.length,
+          ids: legacyIds.slice(0, 10),
+        });
       }
-      await batch.commit();
-      logger.info('sync_deleted_legacy_documents', { count: chunk.length });
     }
 
     // Update sync meta

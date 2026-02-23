@@ -392,11 +392,11 @@ export function DAODetail({ daoId }: DAODetailProps) {
     );
   }
 
-  if (!data?.success) {
+  if (!data) {
     return <ErrorDisplay message="DAOが見つかりませんでした" />;
   }
 
-  const dao = data.data;
+  const dao = data;
   const status = statusConfig[dao.status];
 
   const foundingYear =

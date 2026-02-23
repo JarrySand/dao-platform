@@ -4,7 +4,8 @@ import { db } from '@/shared/lib/firebase/client';
 import type { FirebaseDocumentData } from '@/shared/lib/firebase/types';
 import { firestoreToDocument } from '@/shared/lib/firebase/converters';
 import { setCorsHeaders } from '@/shared/lib/cors';
-import { sanitizeErrorMessage } from '@/shared/lib/middleware';
+import { checkRateLimit } from '@/shared/lib/rate-limit';
+import { sanitizeErrorMessage, getClientIP } from '@/shared/lib/middleware';
 import { logger } from '@/shared/utils/logger';
 import type { ApiResponse, ApiErrorResponse } from '@/shared/types/api';
 import { HTTP_STATUS } from '@/shared/types/api';
@@ -12,6 +13,15 @@ import type { Document, DocumentType, DocumentStatus } from '@/features/document
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const ip = getClientIP(request);
+    if (!checkRateLimit(ip, 30, 60_000)) {
+      const body: ApiErrorResponse = { success: false, error: 'Too many requests' };
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.TOO_MANY_REQUESTS }),
+        request,
+      );
+    }
+
     const { searchParams } = request.nextUrl;
     const daoId = searchParams.get('daoId');
     const hashParam = searchParams.get('hash');

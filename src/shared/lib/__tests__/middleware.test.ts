@@ -78,6 +78,16 @@ describe('authenticateRequest', () => {
     expect(authenticateRequest(req)).toBeNull();
   });
 
+  it('rejects message without timestamp', async () => {
+    const wallet = new Wallet(TEST_KEY_1);
+    const message = `Sign this message to verify ownership of ${wallet.address}`;
+    const signature = await wallet.signMessage(message);
+    const payload = btoa(JSON.stringify({ address: wallet.address, signature, message }));
+    const req = makeRequest({ authorization: `Wallet ${payload}` });
+
+    expect(authenticateRequest(req)).toBeNull();
+  });
+
   it('rejects message with mismatched address', async () => {
     const wallet = new Wallet(TEST_KEY_1);
     const otherWallet = new Wallet(TEST_KEY_2);

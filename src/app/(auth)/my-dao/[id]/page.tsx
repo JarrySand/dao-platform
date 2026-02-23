@@ -46,7 +46,7 @@ export default function MyDAODetailPage({ params }: Props) {
     );
   }
 
-  if (error || !data || !data.success) {
+  if (error || !data) {
     return (
       <div className="container mx-auto px-4 py-8">
         <ErrorDisplay message="DAO の取得に失敗しました" onRetry={() => refetch()} />
@@ -54,7 +54,7 @@ export default function MyDAODetailPage({ params }: Props) {
     );
   }
 
-  const dao: DAO = data.data;
+  const dao: DAO = data;
 
   const handleDeactivate = async () => {
     await deactivateDAO.mutateAsync(dao.id);

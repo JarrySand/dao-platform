@@ -11,7 +11,7 @@ import { ROUTES } from '@/shared/constants/routes';
 
 function DAODetailPageContent({ id }: { id: string }) {
   const { data } = useDAO(id);
-  const daoName = data?.success ? data.data.name : 'DAO詳細';
+  const daoName = data?.name ?? 'DAO詳細';
 
   const breadcrumbItems = [
     { label: 'Home', href: ROUTES.HOME },

@@ -39,8 +39,8 @@ export function DAOStats() {
     );
   }
 
-  const daos = data?.success ? (data.data.data ?? []) : [];
-  const totalDAOs = data?.success ? (data.data.total ?? daos.length) : 0;
+  const daos = data?.data ?? [];
+  const totalDAOs = data?.total ?? daos.length;
   const totalDocuments = daos.reduce((sum, dao) => sum + (dao.documentCount ?? 0), 0);
 
   return (

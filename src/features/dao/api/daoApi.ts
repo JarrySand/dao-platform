@@ -34,7 +34,7 @@ export async function createDAO(data: CreateDAOFormData): Promise<ApiResult<DAO>
 
 export async function updateDAO(id: string, data: UpdateDAOFormData): Promise<ApiResult<DAO>> {
   const address = useWalletStore.getState().address;
-  if (!address) throw new Error('ウォレットが接続されていません');
+  if (!address) return { success: false, error: 'ウォレットが接続されていません' };
   const authorization = await createWalletAuthHeader(address);
   return apiClient.put<ApiResult<DAO>>(`/api/daos/${id}`, data, {
     headers: { Authorization: authorization },
