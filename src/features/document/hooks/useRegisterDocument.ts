@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateFileHash, formatHashForBlockchain } from '@/shared/utils/fileHash';
-import { uploadToIPFS } from '@/shared/lib/ipfs';
 import {
   getEASInstance,
   getSignerFromBrowser,
@@ -98,9 +97,22 @@ export function useRegisterDocument() {
       const hash = await calculateFileHash(file);
       const documentHash = formatHashForBlockchain(hash);
 
-      // Step 2: IPFS upload
+      // Step 2: IPFS upload (via server API to keep Pinata credentials server-side)
       updateProgress('uploading', 'ファイルをIPFSにアップロード中...', 30);
-      const { cid: ipfsCid } = await uploadToIPFS(file);
+      const uploadForm = new FormData();
+      uploadForm.append('file', file);
+      const authorization = await createWalletAuthHeader(walletAddress);
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { Authorization: authorization },
+        body: uploadForm,
+      });
+      if (!uploadRes.ok) {
+        const errBody = await uploadRes.json().catch(() => null);
+        throw new Error(errBody?.error || 'IPFS アップロードに失敗しました');
+      }
+      const uploadData = await uploadRes.json();
+      const ipfsCid: string = uploadData.data.cid;
 
       // Step 3: EAS attestation
       updateProgress('attesting', 'アテステーションを作成中...', 60);
