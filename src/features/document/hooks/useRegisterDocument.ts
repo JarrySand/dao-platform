@@ -66,7 +66,7 @@ export function useRegisterDocument() {
         }
       } catch (e) {
         if (e instanceof Error && e.message.includes('メンバー')) throw e;
-        // best-effort: allow registration if DAO check fails
+        throw new Error('DAO 情報の取得に失敗しました。再度お試しください。');
       }
 
       // C3: Duplicate prevention for standard regulation types

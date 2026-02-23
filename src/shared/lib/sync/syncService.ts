@@ -123,21 +123,17 @@ async function getAllDAOAttestations(limit = 500): Promise<EASAttestation[]> {
 }
 
 async function getAllDocumentAttestations(limit = 500): Promise<EASAttestation[]> {
-  const schemaIds = [schemas.documentV3.uid].filter(
-    (uid) => uid !== '0x0000000000000000000000000000000000000000000000000000000000000000',
-  );
-
   const result = await executeEASQuery<{ attestations: EASAttestation[] }>(
-    `query GetAllDocuments($schemaIds: [String!]!, $limit: Int!) {
+    `query GetAllDocuments($schemaId: String!, $limit: Int!) {
       attestations(
-        where: { schemaId: { in: $schemaIds } }
+        where: { schemaId: { equals: $schemaId } }
         orderBy: { time: desc }
         take: $limit
       ) {
         id attester recipient revocable revoked time data decodedDataJson schemaId
       }
     }`,
-    { schemaIds, limit },
+    { schemaId: schemas.documentV3.uid, limit },
   );
 
   return result.attestations;
@@ -219,11 +215,29 @@ export async function syncAll(): Promise<{ daoCount: number; documentCount: numb
 
     // Batch write Documents (compute version from chain depth)
     let documentCount = 0;
-    // First pass: convert all attestations to document data
+
+    // Build DAO owner lookup for attester verification
+    const daoOwnerMap = new Map<string, string>();
+    for (const att of daoAttestations) {
+      daoOwnerMap.set(att.id, att.attester.toLowerCase());
+    }
+
+    // First pass: convert all attestations to document data (with attester verification)
     const docDataMap = new Map<string, FirebaseDocumentData>();
     for (const att of docAttestations) {
       try {
-        docDataMap.set(att.id, attestationToDocumentData(att));
+        const data = attestationToDocumentData(att);
+        // Skip documents where attester doesn't match DAO admin
+        const daoOwner = daoOwnerMap.get(data.daoId);
+        if (!daoOwner || att.attester.toLowerCase() !== daoOwner) {
+          logger.warn('sync_skip_unauthorized_document', {
+            id: att.id,
+            attester: att.attester,
+            daoId: data.daoId,
+          });
+          continue;
+        }
+        docDataMap.set(att.id, data);
       } catch (e) {
         logger.warn('sync_skip_document', {
           id: att.id,
@@ -263,6 +277,21 @@ export async function syncAll(): Promise<{ daoCount: number; documentCount: numb
         }
       }
       await batch.commit();
+    }
+
+    // Remove legacy (non-v3) documents from Firestore.
+    // After sync, docDataMap contains only v3 documents that passed validation.
+    // Any Firestore doc NOT in this set is a leftover from v1/v2 and should be deleted.
+    const v3Ids = new Set(docDataMap.keys());
+    const legacyIds = [...existingDocs.keys()].filter((id) => !v3Ids.has(id));
+    for (let i = 0; i < legacyIds.length; i += 400) {
+      const batch = writeBatch(db);
+      const chunk = legacyIds.slice(i, i + 400);
+      for (const id of chunk) {
+        batch.delete(doc(db, COLLECTIONS.DOCUMENTS, id));
+      }
+      await batch.commit();
+      logger.info('sync_deleted_legacy_documents', { count: chunk.length });
     }
 
     // Update sync meta
@@ -318,6 +347,36 @@ export async function syncOne(uid: string): Promise<void> {
     await setDoc(doc(db, COLLECTIONS.DAOS, uid), merged);
   } else {
     const easData = attestationToDocumentData(attestation);
+
+    // Verify attester matches DAO admin (reject unauthorized documents)
+    let daoOwner: string | null = null;
+    try {
+      const daoSnap = await getDoc(doc(db, COLLECTIONS.DAOS, easData.daoId));
+      if (daoSnap.exists()) {
+        const daoData = daoSnap.data() as FirebaseDAOData;
+        daoOwner = daoData.attester || daoData.adminAddress || null;
+      }
+    } catch {
+      // best-effort
+    }
+    if (!daoOwner) {
+      try {
+        const daoAtt = await getDAOByUID(easData.daoId);
+        if (daoAtt) daoOwner = daoAtt.attester;
+      } catch {
+        // best-effort
+      }
+    }
+    if (!daoOwner || daoOwner.toLowerCase() !== attestation.attester.toLowerCase()) {
+      logger.warn('sync_skip_unauthorized_document', {
+        uid,
+        attester: attestation.attester,
+        daoId: easData.daoId,
+        daoOwner,
+      });
+      return;
+    }
+
     // Compute version from chain depth
     easData.version = await computeVersion(easData.previousVersionId ?? null);
 

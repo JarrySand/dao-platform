@@ -33,15 +33,11 @@ export async function getDocumentByUID(uid: string): Promise<EASAttestation | nu
 }
 
 export async function getDocumentsByDAO(daoUID: string, limit = 100): Promise<EASAttestation[]> {
-  const schemaIds = [schemas.documentV3.uid].filter(
-    (uid) => uid !== '0x0000000000000000000000000000000000000000000000000000000000000000',
-  );
-
   const result = await executeEASQuery<{ attestations: EASAttestation[] }>(
-    `query GetDocumentsByDAO($schemaIds: [String!]!, $limit: Int!) {
+    `query GetDocumentsByDAO($schemaId: String!, $limit: Int!) {
       attestations(
         where: {
-          schemaId: { in: $schemaIds }
+          schemaId: { equals: $schemaId }
           revoked: { equals: false }
         }
         orderBy: { time: desc }
@@ -50,7 +46,7 @@ export async function getDocumentsByDAO(daoUID: string, limit = 100): Promise<EA
         ${ATTESTATION_FIELDS}
       }
     }`,
-    { schemaIds, limit },
+    { schemaId: schemas.documentV3.uid, limit },
   );
 
   return filterByDAOUID(result.attestations, daoUID);

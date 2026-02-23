@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { syncAll, getSyncStatus } from '@/shared/lib/sync/syncService';
 import { setCorsHeaders } from '@/shared/lib/cors';
 import { checkRateLimit } from '@/shared/lib/rate-limit';
-import { authenticateRequest, sanitizeErrorMessage, getClientIP } from '@/shared/lib/middleware';
+import { sanitizeErrorMessage, getClientIP } from '@/shared/lib/middleware';
 import { logger } from '@/shared/utils/logger';
 import type { ApiResponse, ApiErrorResponse } from '@/shared/types/api';
 import { HTTP_STATUS } from '@/shared/types/api';
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Rate limit sync operations
+    // Rate limit (auth not required — sync is a deterministic cache update from EAS)
     const ip = getClientIP(request);
     if (!checkRateLimit(ip, 5, 60_000)) {
       const body: ApiErrorResponse = { success: false, error: 'Too many requests' };
@@ -38,17 +38,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         NextResponse.json(body, { status: HTTP_STATUS.TOO_MANY_REQUESTS }),
         request,
       );
-    }
-
-    // Authenticate wallet
-    const auth = authenticateRequest(request);
-    if (!auth) {
-      const body: ApiErrorResponse = {
-        success: false,
-        error: 'Authentication required',
-        code: 'AUTH_REQUIRED',
-      };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }), request);
     }
 
     const result = await syncAll();

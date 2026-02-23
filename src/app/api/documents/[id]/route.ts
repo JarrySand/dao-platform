@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, getDocs, query, where, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, query, where, collection, updateDoc } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase/client';
 import type { FirebaseDocumentData, FirebaseDAOData } from '@/shared/lib/firebase/types';
 import { firestoreToDocument } from '@/shared/lib/firebase/converters';
@@ -180,15 +180,26 @@ export async function PUT(
       // best-effort: allow revoke if check fails
     }
 
-    // On-chain revocation is handled client-side via EAS SDK.
-    // This endpoint signals intent and returns the current document state.
-    const document = firestoreToDocument(id, fb);
+    // Update Firestore to reflect the revocation
+    const now = new Date().toISOString();
+    await updateDoc(docRef, {
+      revoked: true,
+      status: 'revoked',
+      updatedAt: now,
+    });
+
+    const document = firestoreToDocument(id, {
+      ...fb,
+      revoked: true,
+      status: 'revoked',
+      updatedAt: now,
+    });
 
     const body: ApiResponse<{ document: Document; message: string }> = {
       success: true,
       data: {
         document,
-        message: 'Document marked for revocation. Submit the on-chain revocation transaction.',
+        message: 'Document revoked successfully.',
       },
     };
 
