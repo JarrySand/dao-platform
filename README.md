@@ -2,6 +2,10 @@
 
 A decentralized platform for managing DAO governance documents with blockchain-verified authenticity and immutability. Built on Ethereum Attestation Service (EAS) for trustless document verification.
 
+> **Demo**: https://dao-doc-platform-demo.vercel.app/
+>
+> **Note**: This demo runs on **Ethereum Sepolia testnet**. This is an **alpha release** — use at your own risk.
+
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router) + React 19
@@ -82,14 +86,14 @@ src/
 
 Copy `.env.example` to `.env.local` and set the required values:
 
-| Category | Variables | Description |
-| --- | --- | --- |
-| Firebase Client | `NEXT_PUBLIC_FIREBASE_API_KEY`, `PROJECT_ID`, etc. | Firestore access (client-side) |
-| Firebase Admin | `FIREBASE_ADMIN_PROJECT_ID`, `CLIENT_EMAIL`, `PRIVATE_KEY` | Firestore access (server-side) |
-| EAS | `NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID` | EAS schema for document attestations |
-| Ethereum | `NEXT_PUBLIC_SEPOLIA_RPC_URL` | Sepolia RPC endpoint |
-| IPFS | `PINATA_JWT` | Pinata API token for IPFS uploads |
-| App | `NEXT_PUBLIC_APP_URL` | Application URL (CORS allowlist) |
+| Category        | Variables                                                  | Description                          |
+| --------------- | ---------------------------------------------------------- | ------------------------------------ |
+| Firebase Client | `NEXT_PUBLIC_FIREBASE_API_KEY`, `PROJECT_ID`, etc.         | Firestore access (client-side)       |
+| Firebase Admin  | `FIREBASE_ADMIN_PROJECT_ID`, `CLIENT_EMAIL`, `PRIVATE_KEY` | Firestore access (server-side)       |
+| EAS             | `NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID`                       | EAS schema for document attestations |
+| Ethereum        | `NEXT_PUBLIC_SEPOLIA_RPC_URL`                              | Sepolia RPC endpoint                 |
+| IPFS            | `PINATA_JWT`                                               | Pinata API token for IPFS uploads    |
+| App             | `NEXT_PUBLIC_APP_URL`                                      | Application URL (CORS allowlist)     |
 
 ## Security
 
@@ -128,18 +132,18 @@ Runs on every push to `main` and all pull requests:
 
 ## Available Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start development server |
-| `npm run build` | Create production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run test` | Run tests |
-| `npm run test:watch` | Run tests in watch mode |
+| Command                 | Description                    |
+| ----------------------- | ------------------------------ |
+| `npm run dev`           | Start development server       |
+| `npm run build`         | Create production build        |
+| `npm run start`         | Start production server        |
+| `npm run lint`          | Run ESLint                     |
+| `npm run typecheck`     | Run TypeScript type checking   |
+| `npm run test`          | Run tests                      |
+| `npm run test:watch`    | Run tests in watch mode        |
 | `npm run test:coverage` | Run tests with coverage report |
-| `npm run format` | Format code with Prettier |
-| `npm run format:check` | Check code formatting |
+| `npm run format`        | Format code with Prettier      |
+| `npm run format:check`  | Check code formatting          |
 
 ## Documentation
 

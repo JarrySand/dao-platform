@@ -3,6 +3,10 @@
 **バージョン**: v2.0.0
 **最終更新**: 2026-02
 
+> **デモサイト**: https://dao-doc-platform-demo.vercel.app/
+>
+> **注意**: 本デモは **Ethereum Sepolia テストネット**上で動作します。**アルファ版**のため、ご利用は自己責任でお願いします。
+
 > 技術実装の詳細は [architecture.md](./architecture.md) を参照。
 
 ---
