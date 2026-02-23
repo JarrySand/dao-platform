@@ -13,7 +13,7 @@ export function Footer({ className }: FooterProps) {
         </p>
         <div className="flex items-center gap-4">
           <a
-            href="https://github.com"
+            href="https://github.com/JarrySand/dao-platform"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-[var(--color-text-secondary)] hover:text-skin-heading"
