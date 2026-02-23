@@ -1,11 +1,12 @@
-export { app, db, auth } from './client';
+export { app, db } from './client';
+export type { FirebaseDAOData, FirebaseDocumentData, SyncMeta } from './types';
+export { firestoreToDAO, firestoreToDocument } from './converters';
 export {
-  loginWithEmail,
-  signupWithEmail,
-  resetPassword,
-  logout,
-  onAuthChange,
-  getCurrentUser,
-  getIdToken,
-} from './auth';
-export type { FirebaseDAOData, FirebaseDocumentData } from './types';
+  COLLECTIONS,
+  daosRef,
+  documentsRef,
+  syncMetaRef,
+  daoDocRef,
+  documentDocRef,
+  syncMetaDocRef,
+} from './collections';

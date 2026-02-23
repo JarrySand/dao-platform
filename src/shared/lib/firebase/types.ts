@@ -13,6 +13,11 @@ export interface FirebaseDAOData {
   attestationUID: string;
   createdAt: string;
   updatedAt: string;
+  // EAS sync fields
+  attester?: string;
+  easTime?: number;
+  revoked?: boolean;
+  source?: 'eas' | 'pending';
 }
 
 export interface FirebaseDocumentData {
@@ -20,10 +25,26 @@ export interface FirebaseDocumentData {
   documentType: string;
   hash: string;
   ipfsCid: string;
-  version: string;
+  version: number; // Derived from previousVersionId chain depth
   status: 'active' | 'revoked';
   daoId: string;
   attestationUID: string;
   createdAt: string;
   updatedAt: string;
+  // EAS sync fields
+  attester?: string;
+  easTime?: number;
+  revoked?: boolean;
+  source?: 'eas' | 'pending';
+  previousVersionId?: string | null;
+  votingTxHash?: string | null;
+  votingChainId?: number | null;
+  relatedDocumentIds?: string[];
+}
+
+export interface SyncMeta {
+  syncedAt: string;
+  status: 'idle' | 'running';
+  daoCount: number;
+  documentCount: number;
 }

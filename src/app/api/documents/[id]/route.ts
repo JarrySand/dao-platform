@@ -1,43 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { doc, getDoc, getDocs, query, where, collection } from 'firebase/firestore';
+import { db } from '@/shared/lib/firebase/client';
+import type { FirebaseDocumentData, FirebaseDAOData } from '@/shared/lib/firebase/types';
+import { firestoreToDocument } from '@/shared/lib/firebase/converters';
 import { setCorsHeaders } from '@/shared/lib/cors';
-import { verifyAuth } from '@/shared/lib/api-client';
-import { getDocumentByUID, getDocumentsByDAO } from '@/shared/lib/eas/queries';
-import { decodeDocumentData } from '@/shared/lib/eas/schema';
+import { checkRateLimit } from '@/shared/lib/rate-limit';
+import { authenticateRequest, sanitizeErrorMessage, getClientIP } from '@/shared/lib/middleware';
+import { logger } from '@/shared/utils/logger';
 import type { ApiResponse, ApiErrorResponse } from '@/shared/types/api';
 import { HTTP_STATUS } from '@/shared/types/api';
-import type { Document, DocumentType } from '@/features/document/types';
-import type { EASAttestation } from '@/shared/lib/eas/types';
-
-function parseDocument(attestation: EASAttestation): Document {
-  const decoded = decodeDocumentData(attestation.decodedDataJson);
-
-  return {
-    id: attestation.id,
-    daoId: decoded.daoAttestationUID,
-    title: decoded.documentTitle,
-    documentType: decoded.documentType as DocumentType,
-    hash: decoded.documentHash,
-    ipfsCid: decoded.ipfsCid,
-    version: decoded.version,
-    previousVersionId: decoded.previousVersionId || null,
-    status: attestation.revoked ? 'revoked' : 'active',
-    attester: attestation.attester,
-    votingTxHash: decoded.votingTxHash ?? null,
-    votingChainId: decoded.votingChainId ?? null,
-    schemaVersion: decoded.schemaVersion,
-    createdAt: new Date(attestation.time * 1000).toISOString(),
-    updatedAt: new Date(attestation.time * 1000).toISOString(),
-  };
-}
+import type { Document } from '@/features/document/types';
 
 async function getVersionChain(documentId: string, daoId: string): Promise<Document[]> {
-  // Get all documents for this DAO to build the version chain
-  const allDocs = await getDocumentsByDAO(daoId);
+  // Query only documents for this DAO instead of full collection scan
+  const q = query(collection(db, 'documents'), where('daoId', '==', daoId));
+  const snapshot = await getDocs(q);
   const docMap = new Map<string, Document>();
 
-  for (const att of allDocs) {
-    const parsed = parseDocument(att);
-    docMap.set(parsed.id, parsed);
+  for (const docSnap of snapshot.docs) {
+    const fb = docSnap.data() as FirebaseDocumentData;
+    docMap.set(docSnap.id, firestoreToDocument(docSnap.id, fb));
   }
 
   // Traverse backwards from current document
@@ -61,21 +43,28 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const attestation = await getDocumentByUID(id);
-    if (!attestation) {
+    const docRef = doc(db, 'documents', id);
+    const snapshot = await getDoc(docRef);
+
+    if (!snapshot.exists()) {
       const body: ApiErrorResponse = { success: false, error: 'Document not found' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }));
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }), request);
     }
 
-    const document = parseDocument(attestation);
+    const fb = snapshot.data() as FirebaseDocumentData;
+    const document = firestoreToDocument(id, fb);
 
     // Build version chain if document has a previousVersionId
     let versionChain: Document[] = [];
     if (document.previousVersionId || document.daoId) {
       try {
         versionChain = await getVersionChain(id, document.daoId);
-      } catch {
-        // Version chain retrieval is best-effort
+      } catch (e) {
+        logger.warn('version_chain_failed', {
+          route: '/api/documents/[id]',
+          documentId: id,
+          error: e instanceof Error ? e.message : 'unknown',
+        });
       }
     }
 
@@ -84,11 +73,19 @@ export async function GET(
       data: { document, versionChain },
     };
 
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }));
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('document_detail_failed', {
+      route: '/api/documents/[id]',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
@@ -97,32 +94,95 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
+    // Rate limit write operations
+    const ip = getClientIP(request);
+    if (!checkRateLimit(ip, 20, 60_000)) {
+      const body: ApiErrorResponse = { success: false, error: 'Too many requests' };
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.TOO_MANY_REQUESTS }),
+        request,
+      );
+    }
+
+    // Authenticate wallet
+    const auth = authenticateRequest(request);
+    if (!auth) {
+      const body: ApiErrorResponse = {
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      };
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }), request);
+    }
+
     const { id } = await params;
 
-    const token = verifyAuth(request);
-    if (!token) {
-      const body: ApiErrorResponse = { success: false, error: 'Unauthorized' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }));
-    }
+    // Verify document exists in Firestore
+    const docRef = doc(db, 'documents', id);
+    const snapshot = await getDoc(docRef);
 
-    // Verify document exists
-    const attestation = await getDocumentByUID(id);
-    if (!attestation) {
+    if (!snapshot.exists()) {
       const body: ApiErrorResponse = { success: false, error: 'Document not found' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }));
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }), request);
     }
 
-    if (attestation.revoked) {
+    const fb = snapshot.data() as FirebaseDocumentData;
+
+    // Verify the authenticated user is the admin of the parent DAO (EAS attester is the source of truth)
+    if (fb.daoId) {
+      const daoRef = doc(db, 'daos', fb.daoId);
+      const daoSnap = await getDoc(daoRef);
+      if (daoSnap.exists()) {
+        const daoData = daoSnap.data() as FirebaseDAOData;
+        const ownerAddress = daoData.attester || daoData.adminAddress;
+        if (!ownerAddress || ownerAddress.toLowerCase() !== auth.address.toLowerCase()) {
+          const body: ApiErrorResponse = {
+            success: false,
+            error: 'Only the DAO admin can revoke documents',
+            code: 'FORBIDDEN',
+          };
+          return setCorsHeaders(
+            NextResponse.json(body, { status: HTTP_STATUS.FORBIDDEN }),
+            request,
+          );
+        }
+      }
+    }
+
+    if (fb.revoked) {
       const body: ApiErrorResponse = {
         success: false,
         error: 'Document is already revoked',
       };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.CONFLICT }));
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.CONFLICT }), request);
+    }
+
+    // C4: Only allow revoking the latest version in a chain
+    try {
+      const successorQuery = query(
+        collection(db, 'documents'),
+        where('previousVersionId', '==', id),
+      );
+      const successorSnap = await getDocs(successorQuery);
+      const hasActiveSuccessor = successorSnap.docs.some((d) => {
+        const data = d.data() as FirebaseDocumentData;
+        return !data.revoked && data.status !== 'revoked';
+      });
+      if (hasActiveSuccessor) {
+        const body: ApiErrorResponse = {
+          success: false,
+          error: 'Only the latest version can be revoked. A newer version exists.',
+          code: 'NOT_LATEST_VERSION',
+        };
+        return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.CONFLICT }), request);
+      }
+    } catch {
+      // best-effort: allow revoke if check fails
     }
 
     // On-chain revocation is handled client-side via EAS SDK.
     // This endpoint signals intent and returns the current document state.
-    const document = parseDocument(attestation);
+    const document = firestoreToDocument(id, fb);
 
     const body: ApiResponse<{ document: Document; message: string }> = {
       success: true,
@@ -132,14 +192,22 @@ export async function PUT(
       },
     };
 
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }));
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('document_revoke_failed', {
+      route: '/api/documents/[id]',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
-export async function OPTIONS(): Promise<NextResponse> {
-  return setCorsHeaders(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return setCorsHeaders(new NextResponse(null, { status: 204 }), request);
 }

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Button } from '@/shared/components/ui/Button';
 import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { formatTimestamp } from '@/shared/utils/format';
+import { getTxExplorerUrl } from '@/shared/utils/explorer';
 
 interface TransactionInfoProps {
   txHash: string;
@@ -16,7 +17,7 @@ export function TransactionInfo({ txHash, chainId }: TransactionInfoProps) {
   const { data: txInfo, isLoading } = useTransactionInfo(txHash, chainId);
   const { copy, copied } = useCopyToClipboard();
 
-  const explorerUrl = `https://sepolia.etherscan.io/tx/${txHash}`;
+  const explorerUrl = getTxExplorerUrl(txHash);
 
   if (isLoading) {
     return (
@@ -41,13 +42,13 @@ export function TransactionInfo({ txHash, chainId }: TransactionInfoProps) {
       <CardContent className="space-y-3">
         {/* TX Hash */}
         <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">トランザクションハッシュ</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">トランザクションハッシュ</p>
           <div className="mt-1 flex items-center gap-2">
             <a
               href={explorerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="break-all font-mono text-sm text-primary-600 hover:underline dark:text-primary-400"
+              className="break-all font-mono text-sm text-skin-heading hover:underline"
             >
               {txHash}
             </a>
@@ -60,8 +61,8 @@ export function TransactionInfo({ txHash, chainId }: TransactionInfoProps) {
         {/* Block Number */}
         {txInfo && (
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">ブロック番号</p>
-            <p className="mt-1 font-mono text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-xs text-[var(--color-text-secondary)]">ブロック番号</p>
+            <p className="mt-1 font-mono text-sm text-skin-heading">
               {txInfo.blockNumber.toLocaleString()}
             </p>
           </div>
@@ -70,8 +71,8 @@ export function TransactionInfo({ txHash, chainId }: TransactionInfoProps) {
         {/* Timestamp */}
         {txInfo && (
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">タイムスタンプ</p>
-            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-xs text-[var(--color-text-secondary)]">タイムスタンプ</p>
+            <p className="mt-1 text-sm text-skin-heading">
               {formatTimestamp(Math.floor(txInfo.timestamp / 1000))}
             </p>
           </div>
@@ -83,7 +84,7 @@ export function TransactionInfo({ txHash, chainId }: TransactionInfoProps) {
             href={explorerUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-primary-600 hover:underline dark:text-primary-400"
+            className="inline-flex items-center gap-1 text-xs text-skin-heading hover:underline"
           >
             Etherscan で表示
             <svg

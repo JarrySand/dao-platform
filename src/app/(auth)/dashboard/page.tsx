@@ -1,21 +1,17 @@
 'use client';
 
-import { useAuth } from '@/features/auth';
+import { useWallet } from '@/features/wallet';
 import { StatsCards, RecentActivity, QuickActions } from '@/features/dashboard';
 import { PageHeader } from '@/shared/components/layout/PageHeader';
-import { LoadingSpinner } from '@/shared/components/feedback/LoadingSpinner';
+import { shortenAddress } from '@/shared/utils/format';
 
 export default function DashboardPage() {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <LoadingSpinner center size="lg" />;
-  }
+  const { address } = useWallet();
 
   return (
     <div className="container mx-auto space-y-8 px-4 py-8">
       <PageHeader
-        title={user ? `${user.displayName ?? 'ユーザー'}さん、おかえりなさい` : 'ダッシュボード'}
+        title={address ? `${shortenAddress(address)} のダッシュボード` : 'ダッシュボード'}
         description="DAO ドキュメントプラットフォームの概要"
       />
 

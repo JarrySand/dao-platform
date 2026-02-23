@@ -10,7 +10,7 @@ export function Skeleton({ variant = 'rectangle', className, ...props }: Skeleto
     <div
       aria-hidden="true"
       className={cn(
-        'animate-pulse bg-gray-200 dark:bg-gray-700',
+        'animate-pulse bg-[var(--color-bg-hover)]',
         variant === 'circle' && 'rounded-full',
         variant === 'rectangle' && 'rounded-lg',
         variant === 'text' && 'h-4 w-full rounded',

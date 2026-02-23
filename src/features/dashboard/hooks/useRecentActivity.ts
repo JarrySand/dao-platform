@@ -18,13 +18,11 @@ export function useRecentActivity() {
   return useQuery({
     queryKey: ['recent-activity'],
     queryFn: async () => {
-      const result = await apiClient.get<ApiResult<ActivityItem[]>>('/api/activity', {
-        skipAuth: true,
-      });
+      const result = await apiClient.get<ApiResult<{ items: ActivityItem[] }>>('/api/activity');
       if (!result.success) {
         throw new Error(result.error);
       }
-      return result.data;
+      return result.data.items;
     },
     staleTime: 30_000,
   });

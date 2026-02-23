@@ -1,9 +1,17 @@
 @import 'tailwindcss';
+@config '../../tailwind.config.ts';
 
 @theme {
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-primary-light: #eef2ff;
+  --color-primary: #111111;
+  --color-primary-hover: #000000;
+  --color-primary-light: #f7f7f7;
+
+  --color-danger: #eb4c5b;
+  --color-danger-hover: #d9414f;
+  --color-danger-active: #c73845;
+  --color-success: #57b375;
+  --color-success-hover: #4da368;
+  --color-success-active: #43935b;
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
@@ -12,25 +20,35 @@
 /* Light mode (default) */
 :root {
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f9fafb;
-  --color-bg-tertiary: #f3f4f6;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-tertiary: #9ca3af;
-  --color-border: #e5e7eb;
-  --color-border-hover: #d1d5db;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #fbfbfb;
+  --color-bg-hover: #f7f7f7;
+  --color-bg-active: #ededed;
+  --color-text-primary: #111111;
+  --color-text-secondary: #57606a;
+  --color-text-tertiary: #8b949e;
+  --color-border: #e5e5e6;
+  --color-border-hover: #d0d0d1;
+  --color-btn-primary-bg: #111111;
+  --color-btn-primary-text: #ffffff;
+  --color-accent-fg: #fbfbfb;
 }
 
 /* Dark mode */
 .dark {
-  --color-bg-primary: #111827;
-  --color-bg-secondary: #1f2937;
-  --color-bg-tertiary: #374151;
-  --color-text-primary: #f9fafb;
-  --color-text-secondary: #d1d5db;
-  --color-text-tertiary: #9ca3af;
-  --color-border: #374151;
-  --color-border-hover: #4b5563;
+  --color-bg-primary: #1c1b20;
+  --color-bg-secondary: #23222a;
+  --color-bg-tertiary: #232227;
+  --color-bg-hover: #252429;
+  --color-bg-active: #29282e;
+  --color-text-primary: #fbfbfb;
+  --color-text-secondary: #a09fa4;
+  --color-text-tertiary: #6e6d72;
+  --color-border: #333237;
+  --color-border-hover: #3e3d43;
+  --color-btn-primary-bg: #fbfbfb;
+  --color-btn-primary-text: #1c1b20;
+  --color-accent-fg: #1c1b20;
 }
 
 /* Base styles */
@@ -39,8 +57,8 @@ body {
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   transition:
-    background-color 0.2s,
-    color 0.2s;
+    background-color 0.15s,
+    color 0.15s;
 }
 
 /* Prevent FOUC */

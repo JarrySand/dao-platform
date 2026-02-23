@@ -3,8 +3,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { calculateFileHash, formatHashForBlockchain } from '@/shared/utils/fileHash';
 import { uploadToIPFS } from '@/shared/lib/ipfs';
-import { getEASInstance, getSignerFromBrowser, encodeDocumentV2Data } from '@/shared/lib/eas';
+import {
+  getEASInstance,
+  getSignerFromBrowser,
+  encodeDocumentV3Data,
+  resolveEASTransaction,
+} from '@/shared/lib/eas';
+import { apiClient, createWalletAuthHeader } from '@/shared/lib/api-client';
 import { CHAIN_CONFIG } from '@/config/chains';
+import { useWalletStore } from '@/features/wallet/stores/walletStore';
+import { isOtherDocumentType, isRegulationType } from '../types';
 import type {
   RegisterDocumentFormData,
   DocumentRegistrationProgress,
@@ -38,6 +46,53 @@ export function useRegisterDocument() {
         onProgress?.({ step, message, progress });
       };
 
+      // H3: Verify DAO membership (Phase 0: wallet address must match DAO attester)
+      const walletAddress = useWalletStore.getState().address;
+      if (!walletAddress) {
+        throw new Error('ウォレットが接続されていません');
+      }
+      try {
+        const daoResult = await apiClient.get<{
+          success: boolean;
+          data: { adminAddress?: string; attester?: string };
+        }>(`/api/daos/${encodeURIComponent(daoId)}`);
+        if (daoResult.success && daoResult.data) {
+          const ownerAddress =
+            ('attester' in daoResult.data ? daoResult.data.attester : null) ||
+            daoResult.data.adminAddress;
+          if (ownerAddress && ownerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+            throw new Error('この DAO のメンバーのみがドキュメントを登録できます');
+          }
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('メンバー')) throw e;
+        // best-effort: allow registration if DAO check fails
+      }
+
+      // C3: Duplicate prevention for standard regulation types
+      if (
+        isRegulationType(formData.documentType) &&
+        formData.documentType !== 'custom_rules' &&
+        !formData.previousVersionId
+      ) {
+        try {
+          const checkRes = await fetch(
+            `/api/documents?daoId=${encodeURIComponent(daoId)}&type=${formData.documentType}&status=active`,
+          );
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            if (checkData.success && checkData.data?.data?.length > 0) {
+              throw new Error(
+                'この DAO にはすでに有効な規程が存在します。改定として登録してください。',
+              );
+            }
+          }
+        } catch (e) {
+          if (e instanceof Error && e.message.includes('改定')) throw e;
+          // best-effort: allow if check fails
+        }
+      }
+
       // Step 1: Hash calculation
       updateProgress('hashing', 'ファイルハッシュを計算中...', 10);
       const hash = await calculateFileHash(file);
@@ -52,16 +107,20 @@ export function useRegisterDocument() {
       const signer = await getSignerFromBrowser();
       const eas = getEASInstance(signer);
 
-      const schemaUID = CHAIN_CONFIG.sepolia.schemas.documentV2.uid;
+      const schemaUID = CHAIN_CONFIG.sepolia.schemas.documentV3.uid;
 
-      const encodedData = encodeDocumentV2Data({
+      // For proposal/minutes (other document types), force previousVersionId to 0x0
+      const previousVersionId = isOtherDocumentType(formData.documentType)
+        ? ZERO_BYTES32
+        : formData.previousVersionId || ZERO_BYTES32;
+
+      const encodedData = encodeDocumentV3Data({
         daoAttestationUID: daoId,
         documentTitle: formData.title,
         documentType: formData.documentType,
         documentHash,
         ipfsCid,
-        version: formData.version,
-        previousVersionId: formData.previousVersionId || ZERO_BYTES32,
+        previousVersionId,
         votingTxHash: formData.votingTxHash || ZERO_BYTES32,
         votingChainId: formData.votingChainId || 0,
       });
@@ -76,40 +135,33 @@ export function useRegisterDocument() {
         },
       });
 
+      // Step 4: Wait for transaction confirmation and extract attestation UID
       updateProgress('caching', 'トランザクション確認中...', 85);
-      const receipt = await tx.wait();
+      const { attestationUID, transactionHash } = await resolveEASTransaction(tx);
 
-      let attestationUID = '';
-      if (receipt && typeof receipt === 'object' && 'logs' in receipt) {
-        const logs = (receipt as Record<string, unknown>).logs;
-        if (Array.isArray(logs) && logs.length > 0) {
-          const firstLog = logs[0] as Record<string, unknown>;
-          if (firstLog && 'topics' in firstLog) {
-            const topics = firstLog.topics;
-            if (Array.isArray(topics) && topics.length > 1) {
-              attestationUID = String(topics[1]);
-            }
-          }
-        }
+      // Event-driven sync: sync the new attestation to Firestore
+      try {
+        const address = await signer.getAddress();
+        const authorization = await createWalletAuthHeader(address);
+        await fetch(`/api/sync/${attestationUID}`, {
+          method: 'POST',
+          headers: { Authorization: authorization },
+        });
+      } catch {
+        // best-effort
       }
 
       updateProgress('complete', '登録完了', 100);
 
-      return {
-        attestationUID,
-        documentHash,
-        ipfsCid,
-        transactionHash:
-          typeof tx === 'object' && 'hash' in tx
-            ? String((tx as Record<string, unknown>).hash)
-            : '',
-      };
+      return { attestationUID, documentHash, ipfsCid, transactionHash };
     },
 
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ['documents', { daoId: variables.daoId }],
       });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 }

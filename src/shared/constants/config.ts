@@ -1,12 +1,6 @@
 export const APP_CONFIG = {
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
-  ALLOWED_MIME_TYPES: [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-    'text/markdown',
-  ],
+  ALLOWED_MIME_TYPES: ['application/pdf'],
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
   API_TIMEOUT: 30_000, // 30s
@@ -17,11 +11,18 @@ export const APP_CONFIG = {
 
 export const DOCUMENT_TYPES = {
   articles: '定款',
-  meeting: 'DAO総会規程',
-  token: 'トークン規程',
-  operation: '運営規程',
-  voting: '投票ドキュメント',
-  other: 'その他',
+  assembly_rules: 'DAO総会規程',
+  operation_rules: '運営規程',
+  token_rules: 'トークン規程',
+  custom_rules: 'カスタム規程',
+  proposal: '投票議題',
+  minutes: '議事録',
 } as const;
 
 export type DocumentTypeKey = keyof typeof DOCUMENT_TYPES;
+
+export const SIZE_OPTIONS = [
+  { label: '小規模 (1-50人)', value: 'small' },
+  { label: '中規模 (51-200人)', value: 'medium' },
+  { label: '大規模 (201人以上)', value: 'large' },
+] as const;

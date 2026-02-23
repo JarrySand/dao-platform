@@ -91,12 +91,12 @@ export default function MyDAODetailPage({ params }: Props) {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{dao.name}</h1>
+            <h1 className="text-2xl font-bold text-skin-heading">{dao.name}</h1>
             <Badge variant={dao.status === 'active' ? 'success' : 'error'}>
               {dao.status === 'active' ? '有効' : '無効'}
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{dao.location}</p>
+          <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{dao.location}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsEditing(true)}>
@@ -152,9 +152,7 @@ export default function MyDAODetailPage({ params }: Props) {
         <TabsContent value="documents">
           <div className="mt-4 space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                ドキュメント一覧
-              </h3>
+              <h3 className="text-lg font-medium text-skin-heading">ドキュメント一覧</h3>
               <Button onClick={() => setIsRegisterOpen(!isRegisterOpen)}>
                 {isRegisterOpen ? 'キャンセル' : 'ドキュメント登録'}
               </Button>
@@ -202,10 +200,8 @@ export default function MyDAODetailPage({ params }: Props) {
 function InfoItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <dt className="text-sm text-gray-500 dark:text-gray-400">{label}</dt>
-      <dd
-        className={`mt-1 text-sm text-gray-900 dark:text-gray-100 ${mono ? 'break-all font-mono' : ''}`}
-      >
+      <dt className="text-sm text-[var(--color-text-secondary)]">{label}</dt>
+      <dd className={`mt-1 text-sm text-skin-heading ${mono ? 'break-all font-mono' : ''}`}>
         {value}
       </dd>
     </div>

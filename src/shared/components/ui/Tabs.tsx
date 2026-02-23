@@ -12,11 +12,7 @@ export const TabsList = forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn(
-      'inline-flex items-center gap-1 rounded-lg bg-gray-100 p-1',
-      'dark:bg-gray-800',
-      className,
-    )}
+    className={cn('inline-flex items-center border-b border-skin-border', className)}
     {...props}
   />
 ));
@@ -29,14 +25,12 @@ export const TabsTrigger = forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all',
-      'text-gray-600 hover:text-gray-900',
-      'dark:text-gray-400 dark:hover:text-gray-100',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
-      'dark:focus-visible:ring-offset-gray-900',
+      'inline-flex items-center justify-center whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors',
+      'text-[var(--color-text-secondary)] hover:text-skin-heading',
+      'focus-visible:outline-none',
       'disabled:pointer-events-none disabled:opacity-50',
-      'data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm',
-      'dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-gray-100',
+      'border-b-2 border-transparent -mb-px',
+      'data-[state=active]:border-skin-primary data-[state=active]:text-skin-heading',
       className,
     )}
     {...props}
@@ -50,11 +44,7 @@ export const TabsContent = forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn(
-      'mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
-      'dark:focus-visible:ring-offset-gray-900',
-      className,
-    )}
+    className={cn('mt-4 focus-visible:outline-none', className)}
     {...props}
   />
 ));

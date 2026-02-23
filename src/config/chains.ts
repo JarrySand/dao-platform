@@ -22,11 +22,17 @@ export const CHAIN_CONFIG = {
         readOnly: true,
       },
       documentV2: {
-        uid:
-          process.env.NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID ||
-          '0xe902a5f06139377b16d7960b69c3469c88090224f2ff694cd7c2a86f86182e99',
+        uid: '0xe902a5f06139377b16d7960b69c3469c88090224f2ff694cd7c2a86f86182e99',
         schema:
           'bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, string version, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId',
+        readOnly: true,
+      },
+      documentV3: {
+        uid:
+          process.env.NEXT_PUBLIC_DOCUMENT_V3_SCHEMA_UID ||
+          '0xc1c9b4dc5dedd27304df8b5d564f618a32ec007daebb4022a6059f31e393f51a',
+        schema:
+          'bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId',
       },
     },
   },

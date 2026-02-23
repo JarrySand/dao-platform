@@ -69,19 +69,19 @@ Phase 0: Foundation ──→ Phase 1: Shared Layer ──→ Phase 2: Features 
 
 ---
 
-### Team 0-C: EAS Document v2 スキーマデプロイ準備
+### Team 0-C: EAS Document v3 スキーマデプロイ [完了]
 
 **担当ファイル**: `scripts/setup-schemas.js`, `src/config/chains.ts`
 
 | #     | タスク                          | 詳細                                                                                                                                                                                                                                                   | 参照             |
 | ----- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
-| 0-C-1 | `config/chains.ts` 作成         | CHAIN_CONFIG オブジェクト。DAO スキーマ UID（v1 維持）、Document v1 UID（読み取り専用）、Document v2 UID（プレースホルダー）、GraphQL エンドポイント、Explorer URL                                                                                     | arch §3.5        |
-| 0-C-2 | `scripts/setup-schemas.js` 更新 | Document v2 スキーマ定義でデプロイするスクリプト。`bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, string version, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId` | arch §3.2, §14.6 |
-| 0-C-3 | スキーマデプロイ実行            | Sepolia にデプロイ → UID 取得 → `config/chains.ts` と `.env` に反映                                                                                                                                                                                    | arch §14.6       |
-| 0-C-4 | `.env.example` 更新             | v2 必須環境変数の追加: `NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID`, `FIREBASE_ADMIN_*`                                                                                                                                                                        | arch §8          |
+| 0-C-1 | `config/chains.ts` 作成         | CHAIN_CONFIG オブジェクト。DAO スキーマ UID（v1 維持）、Document v3 UID（デプロイ済み）、v1/v2 UID（読み取り専用）、GraphQL エンドポイント、Explorer URL                                                                                               | arch §3.5        |
+| 0-C-2 | `scripts/setup-schemas.js` 更新 | Document v3 スキーマ定義でデプロイするスクリプト。`bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId`（version 削除） | arch §3.2, §14.6 |
+| 0-C-3 | スキーマデプロイ実行            | Sepolia にデプロイ済み → UID: `0xc1c9b4dc...` → `config/chains.ts` と `.env` に反映済み                                                                                                                                                                | arch §14.6       |
+| 0-C-4 | `.env.example` 更新             | v3 環境変数: `NEXT_PUBLIC_DOCUMENT_V3_SCHEMA_UID`                                                                                                                                                                                                      | arch §8          |
 | 0-C-5 | `config/env.ts` 作成            | Zod による環境変数バリデーション。サーバー/クライアント変数の分離                                                                                                                                                                                      | arch §8          |
 
-**完了条件**: Document v2 スキーマが Sepolia にデプロイ済み。easscan.org で確認可能。
+**完了条件**: Document v3 スキーマが Sepolia にデプロイ済み。easscan.org で確認可能。 ✅
 
 ---
 
@@ -99,24 +99,24 @@ Phase 0: Foundation ──→ Phase 1: Shared Layer ──→ Phase 2: Features 
 
 ### Team 1-A: 外部サービス連携ライブラリ (`shared/lib/`)
 
-| #      | タスク                          | 詳細                                                                                                                                              | 参照                   |
-| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| 1-A-1  | `shared/lib/firebase/client.ts` | Firestore クライアント初期化。v1 `services/firebase.ts` からリファクタ。モジュラーインポート                                                      | arch §1.5              |
-| 1-A-2  | `shared/lib/firebase/admin.ts`  | Firebase Admin SDK 初期化（サーバーサイド専用）。環境変数から認証情報取得                                                                         | arch §1.5, §9          |
-| 1-A-3  | `shared/lib/firebase/auth.ts`   | Firebase Auth ヘルパー。`createUserWithEmailAndPassword`, `signInWithEmailAndPassword`, `sendPasswordResetEmail`, `onAuthStateChanged` のラッパー | arch §9.1              |
-| 1-A-4  | `shared/lib/firebase/types.ts`  | `FirebaseDAOData`, `FirebaseDocumentData` 型定義。`normalizeDAOMetadata()` 遅延移行関数                                                           | arch §3.4, §14.3       |
-| 1-A-5  | `shared/lib/eas/client.ts`      | EAS SDK 初期化。ethers.js v6 BrowserProvider → Signer → EAS インスタンス                                                                          | arch §1.4              |
-| 1-A-6  | `shared/lib/eas/schema.ts`      | v1/v2 スキーマのエンコード/デコード。v1→v2 変換レイヤー（documentType="unknown", votingTxHash="0x0"）。v1 `utils/easSchema.ts` からリファクタ     | arch §3.2, §3.5        |
-| 1-A-7  | `shared/lib/eas/graphql.ts`     | GraphQL クエリ実行。バッチクエリ `executeBatchQuery()`。v1+v2 統合クエリ（エイリアス方式）。v1 `utils/easQuery.ts` から分解                       | arch §6.2 OPT-02, §3.5 |
-| 1-A-8  | `shared/lib/eas/queries.ts`     | 単一リソースクエリ: `getDAOByUID()`, `getDocumentByUID()`, `getDocumentsByDAO()`。`filterByDAOUID()` 偽陽性フィルター                             | arch §6.2 OPT-01, §6.7 |
-| 1-A-9  | `shared/lib/eas/types.ts`       | EAS 固有型: `EASAttestation`, `DecodedDAOData`, `DecodedDocumentData`, `SchemaVersion`                                                            | arch §3.2              |
-| 1-A-10 | `shared/lib/ipfs/client.ts`     | Pinata アップロード/ダウンロード。w3up-client フォールバック。10MB 上限、リトライ 2回、指数バックオフ。v1 `utils/ipfsStorage.ts` からリファクタ   | arch §1.5              |
-| 1-A-11 | `shared/lib/ipfs/gateway.ts`    | ゲートウェイ URL 生成: `https://gateway.pinata.cloud/ipfs/{CID}`                                                                                  | arch §1.5              |
-| 1-A-12 | `shared/lib/api-client.ts`      | HTTP クライアント。リトライ・エラー処理。Firebase Auth トークン自動付与。サーバーサイド `verifyAuth()`                                            | arch §11.2             |
-| 1-A-13 | `shared/lib/query-client.ts`    | TanStack Query 設定。staleTime/gcTime のデフォルト値                                                                                              | arch §6.2 OPT-03       |
-| 1-A-14 | `shared/lib/wallet/verify.ts`   | EIP-191 署名ベースのウォレット所有権検証。`verifyWalletOwnership()`                                                                               | arch §9.5              |
-| 1-A-15 | `shared/lib/cors.ts`            | CORS 設定。`ALLOWED_ORIGINS`, `setCorsHeaders()`                                                                                                  | arch §11.6             |
-| 1-A-16 | Firebase バッチ読み取り         | `shared/lib/firebase/client.ts` に `batchGetDAOMetadata()` 実装。Firestore `in` クエリ（最大30件/バッチ）。`chunkArray()` ユーティリティ含む      | arch §6.2 OPT-05       |
+| #         | タスク                            | 詳細                                                                                                                                            | 参照                   |
+| --------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 1-A-1     | `shared/lib/firebase/client.ts`   | Firestore クライアント初期化。v1 `services/firebase.ts` からリファクタ。モジュラーインポート                                                    | arch §1.5              |
+| 1-A-2     | `shared/lib/firebase/admin.ts`    | Firebase Admin SDK 初期化（サーバーサイド専用）。環境変数から認証情報取得                                                                       | arch §1.5, §9          |
+| ~~1-A-3~~ | ~~`shared/lib/firebase/auth.ts`~~ | ~~Firebase Auth ヘルパー~~ **廃止: ウォレット認証に移行済み**                                                                                   | —                      |
+| 1-A-4     | `shared/lib/firebase/types.ts`    | `FirebaseDAOData`, `FirebaseDocumentData` 型定義。`normalizeDAOMetadata()` 遅延移行関数                                                         | arch §3.4, §14.3       |
+| 1-A-5     | `shared/lib/eas/client.ts`        | EAS SDK 初期化。ethers.js v6 BrowserProvider → Signer → EAS インスタンス                                                                        | arch §1.4              |
+| 1-A-6     | `shared/lib/eas/schema.ts`        | v1/v2 スキーマのエンコード/デコード。v1→v2 変換レイヤー（documentType="unknown", votingTxHash="0x0"）。v1 `utils/easSchema.ts` からリファクタ   | arch §3.2, §3.5        |
+| 1-A-7     | `shared/lib/eas/graphql.ts`       | GraphQL クエリ実行。バッチクエリ `executeBatchQuery()`。v1+v2 統合クエリ（エイリアス方式）。v1 `utils/easQuery.ts` から分解                     | arch §6.2 OPT-02, §3.5 |
+| 1-A-8     | `shared/lib/eas/queries.ts`       | 単一リソースクエリ: `getDAOByUID()`, `getDocumentByUID()`, `getDocumentsByDAO()`。`filterByDAOUID()` 偽陽性フィルター                           | arch §6.2 OPT-01, §6.7 |
+| 1-A-9     | `shared/lib/eas/types.ts`         | EAS 固有型: `EASAttestation`, `DecodedDAOData`, `DecodedDocumentData`, `SchemaVersion`                                                          | arch §3.2              |
+| 1-A-10    | `shared/lib/ipfs/client.ts`       | Pinata アップロード/ダウンロード。w3up-client フォールバック。10MB 上限、リトライ 2回、指数バックオフ。v1 `utils/ipfsStorage.ts` からリファクタ | arch §1.5              |
+| 1-A-11    | `shared/lib/ipfs/gateway.ts`      | ゲートウェイ URL 生成: `https://gateway.pinata.cloud/ipfs/{CID}`                                                                                | arch §1.5              |
+| 1-A-12    | `shared/lib/api-client.ts`        | HTTP クライアント。リトライ・エラー処理。シンプルな fetch ラッパー（認証ヘッダー不要）                                                          | arch §11.2             |
+| 1-A-13    | `shared/lib/query-client.ts`      | TanStack Query 設定。staleTime/gcTime のデフォルト値                                                                                            | arch §6.2 OPT-03       |
+| 1-A-14    | `shared/lib/wallet/verify.ts`     | EIP-191 署名ベースのウォレット所有権検証。`verifyWalletOwnership()`                                                                             | arch §9.5              |
+| 1-A-15    | `shared/lib/cors.ts`              | CORS 設定。`ALLOWED_ORIGINS`, `setCorsHeaders()`                                                                                                | arch §11.6             |
+| 1-A-16    | Firebase バッチ読み取り           | `shared/lib/firebase/client.ts` に `batchGetDAOMetadata()` 実装。Firestore `in` クエリ（最大30件/バッチ）。`chunkArray()` ユーティリティ含む    | arch §6.2 OPT-05       |
 
 **完了条件**: 各モジュールの単体テスト作成。インポートが正常に解決される。
 
@@ -201,17 +201,13 @@ Phase 0: Foundation ──→ Phase 1: Shared Layer ──→ Phase 2: Features 
 
 ### Team 2-A: Auth Feature (`features/auth/`)
 
-| #     | タスク                                           | 詳細                                                                                                                                               | 参照                       |
-| ----- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| 2-A-1 | `features/auth/stores/authStore.ts`              | Zustand ストア。`AuthState` + `AuthActions`。Firebase `onAuthStateChanged` リスナー。ログアウト時に walletStore.disconnect() + queryClient.clear() | arch §12.1, §12.3          |
-| 2-A-2 | `features/auth/hooks/useAuth.ts`                 | authStore のセレクターフック。`useAuth()` → `{ user, isLoading, isInitialized, login, signup, logout, resetPassword }`                             | arch §12.1                 |
-| 2-A-3 | `features/auth/components/AuthGuard.tsx`         | 認証ガード。未認証→ログインリダイレクト（リダイレクト先をクエリパラメータで保持）。ローディング中はスピナー表示                                    | arch §9.4, req §FR-AUTH-04 |
-| 2-A-4 | `features/auth/components/LoginForm.tsx`         | React Hook Form + Zod。メール/パスワード入力。バリデーションエラー表示。Firebase Auth `signInWithEmailAndPassword`                                 | req §FR-AUTH-01            |
-| 2-A-5 | `features/auth/components/SignupForm.tsx`        | React Hook Form + Zod。メール/パスワード + 確認パスワード。`createUserWithEmailAndPassword` + メール確認案内                                       | req §FR-AUTH-01            |
-| 2-A-6 | `features/auth/components/ResetPasswordForm.tsx` | React Hook Form + Zod。メールアドレス入力 → `sendPasswordResetEmail`。成功メッセージ表示                                                           | req §FR-AUTH-01            |
-| 2-A-7 | テスト: authStore                                | Zustand ストアの単体テスト。ログイン/ログアウト/初期化のシナリオ                                                                                   | -                          |
+| #     | タスク                                   | 詳細                                                                                                            | 参照                       |
+| ----- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| 2-A-1 | `features/auth/stores/authStore.ts`      | walletStore のアドレスを参照するシンプルなヘルパー。認証 = ウォレット接続                                       | arch §12.1                 |
+| 2-A-2 | `features/auth/hooks/useAuth.ts`         | walletStore のセレクターフック。`useAuth()` → `{ address, isAuthenticated, isConnecting, connect, disconnect }` | arch §12.1                 |
+| 2-A-3 | `features/auth/components/AuthGuard.tsx` | 認証ガード。ウォレット未接続時に「ウォレットを接続してください」UIをインライン表示。WalletConnectButton を表示  | arch §9.4, req §FR-AUTH-04 |
 
-**完了条件**: Firebase Auth のフル認証フロー（サインアップ → メール確認 → ログイン → ログアウト → リセット）が動作。
+**完了条件**: ウォレット接続 → 保護ページアクセス → ウォレット切断で認証ガード表示、の一連のフローが動作。
 
 ---
 
@@ -253,19 +249,19 @@ Phase 0: Foundation ──→ Phase 1: Shared Layer ──→ Phase 2: Features 
 
 ### Team 2-D: Document Feature (`features/document/`)
 
-| #      | タスク                                            | 詳細                                                                                                                                                              | 参照                                         |
-| ------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 2-D-1  | `features/document/types/index.ts`                | `Document`, `DocumentType`(articles/meeting/token/operation/voting/other), `DocumentFormData`, `RegisterDocumentSchema`（Zod）, `VotingDocumentFields`            | arch §3.2, spec §6                           |
-| 2-D-2  | `features/document/api/documentApi.ts`            | API クライアント: `fetchDocuments(daoId, filters)`, `fetchDocument(id)`, `registerDocument(data)`, `revokeDocument(id)`                                           | arch §4.3, §4.5                              |
-| 2-D-3  | `features/document/hooks/useDocuments.ts`         | TanStack Query。DAO 別ドキュメント一覧。タイプ別フィルター。ステータスフィルター。txHash 検索                                                                     | req §FR-DOC-02, §FR-VDOC-03                  |
-| 2-D-4  | `features/document/hooks/useDocument.ts`          | TanStack Query。単一ドキュメント取得（バージョンチェーン情報含む）                                                                                                | arch §6.6                                    |
-| 2-D-5  | `features/document/hooks/useRegisterDocument.ts`  | TanStack Mutation。4ステップ: ハッシュ計算 → IPFS アップロード → EAS v2 アテステーション → Firebase キャッシュ。voting 選択時は votingTxHash/votingChainId を含む | arch §4.3, §4.4, req §FR-DOC-01, §FR-VDOC-01 |
-| 2-D-6  | `features/document/hooks/useRevokeDocument.ts`    | TanStack Mutation。EAS revoke → Firebase ステータス更新。リトライ対応                                                                                             | arch §4.5, req §FR-DOC-04                    |
-| 2-D-7  | `features/document/hooks/useDocumentVersions.ts`  | バージョンチェーン取得。`previousVersionId` を再帰的に辿る（上限 20）。TanStack Query キャッシュ staleTime: 5min                                                  | arch §6.6, req §FR-VER-01                    |
-| 2-D-8  | `features/document/hooks/useTransactionInfo.ts`   | 投票 TX 情報取得。txHash + chainId → Etherscan API でブロック番号・タイムスタンプ取得                                                                             | req §FR-VDOC-02                              |
-| 2-D-9  | `features/document/utils/documentService.ts`      | ドキュメント登録フロー。v1 からリファクタ。SHA-256 + IPFS + EAS + Firebase の順序制御                                                                             | arch §4.3                                    |
-| 2-D-10 | `features/document/utils/documentQueryService.ts` | ドキュメントクエリ。v1+v2 スキーマ統合。v1 からリファクタ                                                                                                         | arch §3.5, §6.2                              |
-| 2-D-11 | テスト: documentApi, useDocuments                 | API クライアント + フックのテスト。MSW モック使用                                                                                                                 | -                                            |
+| #      | タスク                                            | 詳細                                                                                                                                                                                                                                                      | 参照                                         |
+| ------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 2-D-1  | `features/document/types/index.ts`                | `Document`, `DocumentType`(articles/assembly_rules/operation_rules/token_rules/custom_rules/proposal/minutes), `RegisterDocumentFormData`, `registerDocumentSchema`（Zod）, `ProposalDocumentFields`. `RegulationType`/`OtherDocumentType` ヘルパー型含む | arch §3.2, spec §6, doc-categories           |
+| 2-D-2  | `features/document/api/documentApi.ts`            | API クライアント: `fetchDocuments(daoId, filters)`, `fetchDocument(id)`, `registerDocument(data)`, `revokeDocument(id)`                                                                                                                                   | arch §4.3, §4.5                              |
+| 2-D-3  | `features/document/hooks/useDocuments.ts`         | TanStack Query。DAO 別ドキュメント一覧。タイプ別フィルター。ステータスフィルター。txHash 検索                                                                                                                                                             | req §FR-DOC-02, §FR-VDOC-03                  |
+| 2-D-4  | `features/document/hooks/useDocument.ts`          | TanStack Query。単一ドキュメント取得（バージョンチェーン情報含む）                                                                                                                                                                                        | arch §6.6                                    |
+| 2-D-5  | `features/document/hooks/useRegisterDocument.ts`  | TanStack Mutation。4ステップ: ハッシュ計算 → IPFS アップロード → EAS v3 アテステーション → Firebase 同期。proposal 選択時は votingTxHash/votingChainId を含む。v3 では version フィールドなし                                                             | arch §4.3, §4.4, req §FR-DOC-01, §FR-VDOC-01 |
+| 2-D-6  | `features/document/hooks/useRevokeDocument.ts`    | TanStack Mutation。EAS revoke → Firebase ステータス更新。リトライ対応                                                                                                                                                                                     | arch §4.5, req §FR-DOC-04                    |
+| 2-D-7  | `features/document/hooks/useDocumentVersions.ts`  | バージョンチェーン取得。`previousVersionId` を再帰的に辿る（上限 20）。TanStack Query キャッシュ staleTime: 5min                                                                                                                                          | arch §6.6, req §FR-VER-01                    |
+| 2-D-8  | `features/document/hooks/useTransactionInfo.ts`   | 投票 TX 情報取得。txHash + chainId → Etherscan API でブロック番号・タイムスタンプ取得                                                                                                                                                                     | req §FR-VDOC-02                              |
+| 2-D-9  | `features/document/utils/documentService.ts`      | ドキュメント登録フロー。v1 からリファクタ。SHA-256 + IPFS + EAS + Firebase の順序制御                                                                                                                                                                     | arch §4.3                                    |
+| 2-D-10 | `features/document/utils/documentQueryService.ts` | ドキュメントクエリ。v1+v2 スキーマ統合。v1 からリファクタ                                                                                                                                                                                                 | arch §3.5, §6.2                              |
+| 2-D-11 | テスト: documentApi, useDocuments                 | API クライアント + フックのテスト。MSW モック使用                                                                                                                                                                                                         | -                                            |
 
 **完了条件**: ドキュメント登録（通常 + 投票）、一覧、検証、失効、バージョンチェーンのビジネスロジックが完成。
 
@@ -324,22 +320,19 @@ Phase 0: Foundation ──→ Phase 1: Shared Layer ──→ Phase 2: Features 
 
 ---
 
-### Team 3-C: 認証ページ & ドキュメントコンポーネント
+### Team 3-C: ドキュメントコンポーネント
 
-| #      | タスク                                                  | 詳細                                                                                                                                                        | 参照                        |
-| ------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| 3-C-1  | `app/login/page.tsx`                                    | LoginForm コンポーネント配置。ログイン後にリダイレクト先へ遷移                                                                                              | req §FR-AUTH-01             |
-| 3-C-2  | `app/signup/page.tsx`                                   | SignupForm コンポーネント配置。サインアップ成功 → メール確認案内                                                                                            | req §FR-AUTH-01             |
-| 3-C-3  | `app/reset-password/page.tsx`                           | ResetPasswordForm コンポーネント配置                                                                                                                        | req §FR-AUTH-01             |
-| 3-C-4  | `features/document/components/DocumentCard.tsx`         | タイトル、タイプバッジ、バージョン、登録日、ステータス（active/revoked）。IPFS ダウンロードリンク。投票ドキュメント: TX サマリー付き                        | req §FR-DOC-02, §FR-VDOC-03 |
-| 3-C-5  | `features/document/components/DocumentList.tsx`         | DocumentCard のリスト表示。タイプ別フィルター。ステータスフィルター。txHash 検索。管理者のみ「失効」ボタン                                                  | req §FR-DOC-02, §FR-VDOC-03 |
-| 3-C-6  | `features/document/components/DocumentRegisterForm.tsx` | マルチステップウィザード。タイトル・タイプ・バージョン・ファイル入力。voting 選択時に votingTxHash/votingChainId 条件表示。進捗バー（0-100%）。Gas 見積もり | req §FR-DOC-01, §FR-VDOC-01 |
-| 3-C-7  | `features/document/components/DocumentVerifier.tsx`     | ファイルアップロード → ハッシュ計算 → オンチェーン照合。一致/不一致の結果表示。登録者・登録日・タイプ・CID 表示                                             | req §FR-DOC-03              |
-| 3-C-8  | `features/document/components/FileUploader.tsx`         | D&D 対応。ファイルサイズ/タイプバリデーション。プレビュー                                                                                                   | req §FR-DOC-01              |
-| 3-C-9  | `features/document/components/FileHashCalculator.tsx`   | SHA-256 ハッシュ計算 UI。計算中のプログレスバー                                                                                                             | -                           |
-| 3-C-10 | テスト: DocumentRegisterForm, DocumentVerifier          | RTL でのコンポーネントテスト                                                                                                                                | -                           |
+| #     | タスク                                                  | 詳細                                                                                                                                                        | 参照                        |
+| ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| 3-C-1 | `features/document/components/DocumentCard.tsx`         | タイトル、タイプバッジ、バージョン、登録日、ステータス（active/revoked）。IPFS ダウンロードリンク。投票ドキュメント: TX サマリー付き                        | req §FR-DOC-02, §FR-VDOC-03 |
+| 3-C-2 | `features/document/components/DocumentList.tsx`         | DocumentCard のリスト表示。タイプ別フィルター。ステータスフィルター。txHash 検索。管理者のみ「失効」ボタン                                                  | req §FR-DOC-02, §FR-VDOC-03 |
+| 3-C-3 | `features/document/components/DocumentRegisterForm.tsx` | マルチステップウィザード。タイトル・タイプ・バージョン・ファイル入力。voting 選択時に votingTxHash/votingChainId 条件表示。進捗バー（0-100%）。Gas 見積もり | req §FR-DOC-01, §FR-VDOC-01 |
+| 3-C-4 | `features/document/components/DocumentVerifier.tsx`     | ファイルアップロード → ハッシュ計算 → オンチェーン照合。一致/不一致の結果表示。登録者・登録日・タイプ・CID 表示                                             | req §FR-DOC-03              |
+| 3-C-5 | `features/document/components/FileUploader.tsx`         | D&D 対応。ファイルサイズ/タイプバリデーション。プレビュー                                                                                                   | req §FR-DOC-01              |
+| 3-C-6 | `features/document/components/FileHashCalculator.tsx`   | SHA-256 ハッシュ計算 UI。計算中のプログレスバー                                                                                                             | -                           |
+| 3-C-7 | テスト: DocumentRegisterForm, DocumentVerifier          | RTL でのコンポーネントテスト                                                                                                                                | -                           |
 
-**完了条件**: 認証フロー（ログイン → サインアップ → リセット）、ドキュメント登録・検証 UI が動作。
+**完了条件**: ドキュメント登録・検証 UI が動作。
 
 ---
 
@@ -474,26 +467,26 @@ v1 コード（`src/components/`, `src/contexts/`, `src/services/`, `src/utils/`
 ## クリティカルパス
 
 ```
-0-C-3 (EAS v2 スキーマデプロイ)
-  → 1-A-6 (EAS schema.ts v1/v2 変換)
-    → 2-D-5 (useRegisterDocument v2 スキーマ使用)
+0-C-3 (EAS v3 スキーマデプロイ) ✅ 完了
+  → 1-A-6 (EAS schema.ts v3 エンコード/デコード)
+    → 2-D-5 (useRegisterDocument v3 スキーマ使用)
       → 3-A-6 (POST /api/documents)
         → 3-C-6 (DocumentRegisterForm)
 ```
 
-このパスが全体のボトルネック。EAS v2 スキーマデプロイを最優先で完了する。
+EAS v3 スキーマはデプロイ済み。クリティカルパスのボトルネックは解消済み。
 
 ---
 
 ## リスクと対策
 
-| リスク                             | 影響度 | 対策                                                                  |
-| ---------------------------------- | ------ | --------------------------------------------------------------------- |
-| EAS v2 スキーマデプロイ失敗        | 致命的 | v1 スキーマで仮実装 → v2 デプロイ後に差し替え                         |
-| Next.js 15 + React 19 の破壊的変更 | 高     | 公式マイグレーションガイドに沿って対応。Canary チャンネルのバグに注意 |
-| Tailwind CSS 4 の設定差異          | 中     | v4 の公式ドキュメント参照。v3 からの設定マイグレーション確認          |
-| TanStack Query + Zustand の統合    | 中     | ストア間連携（§12.3）の実装を Phase 2 で早期に検証                    |
-| バンドルサイズ 200KB 超過          | 中     | Phase 4 で遅延ロード + バンドル分析。超過時は Code Splitting 追加     |
+| リスク                             | 影響度     | 対策                                                                  |
+| ---------------------------------- | ---------- | --------------------------------------------------------------------- |
+| ~~EAS v3 スキーマデプロイ失敗~~    | ~~致命的~~ | ✅ デプロイ済み（UID: `0xc1c9b4dc...`）                               |
+| Next.js 15 + React 19 の破壊的変更 | 高         | 公式マイグレーションガイドに沿って対応。Canary チャンネルのバグに注意 |
+| Tailwind CSS 4 の設定差異          | 中         | v4 の公式ドキュメント参照。v3 からの設定マイグレーション確認          |
+| TanStack Query + Zustand の統合    | 中         | ストア間連携（§12.3）の実装を Phase 2 で早期に検証                    |
+| バンドルサイズ 200KB 超過          | 中         | Phase 4 で遅延ロード + バンドル分析。超過時は Code Splitting 追加     |
 
 ---
 
@@ -510,4 +503,4 @@ v0.2.0-alpha リリースに必要な条件:
 - [ ] 全画面がレスポンシブ（320px〜1920px）+ ダークモード対応
 - [ ] v1 レガシーコード完全削除
 - [ ] OSS ドキュメント一式完成
-- [ ] EAS Document v2 スキーマが Sepolia にデプロイ済み
+- [x] EAS Document v3 スキーマが Sepolia にデプロイ済み

@@ -10,11 +10,22 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
+export interface SelectOptionGroup {
+  label: string;
+  options: readonly SelectOption[];
+}
+
+export type SelectOptions = readonly SelectOption[] | readonly SelectOptionGroup[];
+
+function isGrouped(options: SelectOptions): options is readonly SelectOptionGroup[] {
+  return options.length > 0 && 'options' in options[0];
+}
+
 export interface SelectProps {
   label?: string;
   error?: string;
   placeholder?: string;
-  options: SelectOption[];
+  options: SelectOptions;
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
@@ -35,11 +46,7 @@ export function Select({
 }: SelectProps) {
   return (
     <div className="w-full">
-      {label && (
-        <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-          {label}
-        </span>
-      )}
+      {label && <span className="mb-1.5 block text-sm font-medium text-skin-heading">{label}</span>}
       <SelectPrimitive.Root
         value={value}
         defaultValue={defaultValue}
@@ -48,21 +55,34 @@ export function Select({
         name={name}
       >
         <SelectTrigger
-          className={cn(error && 'border-red-500 dark:border-red-400')}
+          className={cn(error && 'border-[var(--color-danger)]')}
           aria-invalid={!!error}
         >
           <SelectPrimitive.Value placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
-              {option.label}
-            </SelectItem>
-          ))}
+          {isGrouped(options)
+            ? options.map((group) => (
+                <SelectPrimitive.Group key={group.label}>
+                  <SelectPrimitive.Label className="px-3 py-1.5 text-xs font-semibold text-[var(--color-text-tertiary)]">
+                    {group.label}
+                  </SelectPrimitive.Label>
+                  {group.options.map((option) => (
+                    <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectPrimitive.Group>
+              ))
+            : options.map((option) => (
+                <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+                  {option.label}
+                </SelectItem>
+              ))}
         </SelectContent>
       </SelectPrimitive.Root>
       {error && (
-        <p className="mt-1.5 text-sm text-red-600 dark:text-red-400" role="alert">
+        <p className="mt-1.5 text-sm text-[var(--color-danger)]" role="alert">
           {error}
         </p>
       )}
@@ -77,10 +97,9 @@ const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm',
-      'text-gray-900 placeholder:text-gray-400',
-      'dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100',
-      'focus:outline-none focus:ring-2 focus:ring-primary-500',
+      'flex w-full items-center justify-between rounded-xl border border-skin-border bg-[var(--color-bg-tertiary)] px-3 py-2 text-sm',
+      'text-skin-heading placeholder:text-[var(--color-text-tertiary)]',
+      'focus:outline-none focus:ring-2 focus:ring-skin-primary',
       'disabled:cursor-not-allowed disabled:opacity-50',
       className,
     )}
@@ -89,7 +108,7 @@ const SelectTrigger = forwardRef<
     {children}
     <SelectPrimitive.Icon asChild>
       <svg
-        className="h-4 w-4 text-gray-400"
+        className="h-4 w-4 text-[var(--color-text-tertiary)]"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 20 20"
         fill="currentColor"
@@ -116,8 +135,7 @@ const SelectContent = forwardRef<
       position="popper"
       sideOffset={4}
       className={cn(
-        'relative z-50 max-h-60 min-w-[8rem] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg',
-        'dark:border-gray-700 dark:bg-gray-800',
+        'relative z-50 max-h-60 min-w-[8rem] overflow-hidden rounded-xl border border-skin-border bg-[var(--color-bg-primary)]',
         'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
         'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
         className,
@@ -137,10 +155,9 @@ const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-pointer select-none items-center rounded-md px-3 py-2 text-sm',
-      'text-gray-900 outline-none',
-      'hover:bg-gray-100 focus:bg-gray-100',
-      'dark:text-gray-100 dark:hover:bg-gray-700 dark:focus:bg-gray-700',
+      'relative flex w-full cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm',
+      'text-skin-heading outline-none',
+      'hover:bg-[var(--color-bg-hover)] focus:bg-[var(--color-bg-hover)]',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}

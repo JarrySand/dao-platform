@@ -27,11 +27,7 @@ export function DAOCard({ dao, onClick }: DAOCardProps) {
 
   const content = (
     <Card
-      className={cn(
-        'h-full transition-all duration-200',
-        'hover:shadow-lg hover:-translate-y-0.5',
-        'dark:hover:border-gray-600',
-      )}
+      className={cn('h-full transition-colors', 'hover:border-[var(--color-border-hover)]')}
       onClick={onClick}
     >
       <CardHeader>
@@ -53,7 +49,7 @@ export function DAOCard({ dao, onClick }: DAOCardProps) {
             )}
           </div>
           {dao.foundingDate > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-[var(--color-text-tertiary)]">
               設立: {formatTimestamp(dao.foundingDate)}
             </span>
           )}
@@ -69,7 +65,7 @@ export function DAOCard({ dao, onClick }: DAOCardProps) {
   return (
     <Link
       href={ROUTES.DAO_DETAIL(dao.id)}
-      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl"
+      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-skin-primary rounded-xl"
     >
       {content}
     </Link>

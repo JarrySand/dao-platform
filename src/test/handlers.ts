@@ -55,13 +55,13 @@ export const mockDocument: Document = {
   documentType: 'articles',
   hash: '0x' + 'f6'.repeat(32),
   ipfsCid: 'QmTestCid123456789',
-  version: '1.0.0',
+  version: 1,
   previousVersionId: null,
   status: 'active',
   attester: '0x' + 'b2'.repeat(20),
   votingTxHash: null,
   votingChainId: null,
-  schemaVersion: 'v2',
+  relatedDocumentIds: [],
   createdAt: '2024-02-01T00:00:00Z',
   updatedAt: '2024-02-01T00:00:00Z',
 };
@@ -70,16 +70,16 @@ export const mockDocument2: Document = {
   id: '0x' + 'a7'.repeat(32),
   daoId: mockDAO.id,
   title: 'Meeting Minutes Q1',
-  documentType: 'meeting',
+  documentType: 'minutes',
   hash: '0x' + 'b8'.repeat(32),
   ipfsCid: 'QmTestCid987654321',
-  version: '1.0',
+  version: 1,
   previousVersionId: null,
   status: 'active',
   attester: '0x' + 'b2'.repeat(20),
   votingTxHash: '0x' + 'c9'.repeat(32),
   votingChainId: 11155111,
-  schemaVersion: 'v2',
+  relatedDocumentIds: [],
   createdAt: '2024-03-15T00:00:00Z',
   updatedAt: '2024-03-15T00:00:00Z',
 };
@@ -143,17 +143,16 @@ export const handlers = [
 
   // GET /api/documents - list documents
   http.get('/api/documents', () => {
-    const response: ApiResponse<Document[]> = {
+    const response: ApiResponse<PaginatedResponse<Document>> = {
       success: true,
-      data: [mockDocument, mockDocument2],
+      data: {
+        data: [mockDocument, mockDocument2],
+        nextCursor: null,
+        hasMore: false,
+        total: 2,
+      },
     };
     return HttpResponse.json(response);
-  }),
-
-  // POST /api/documents - register document
-  http.post('/api/documents', () => {
-    const response: ApiResponse<Document> = { success: true, data: mockDocument };
-    return HttpResponse.json(response, { status: 201 });
   }),
 
   // GET /api/documents/:id - get document by id
@@ -163,7 +162,10 @@ export const handlers = [
     if (!doc) {
       return HttpResponse.json({ success: false, error: 'Document not found' }, { status: 404 });
     }
-    const response: ApiResponse<Document> = { success: true, data: doc };
+    const response: ApiResponse<{ document: Document; versionChain: Document[] }> = {
+      success: true,
+      data: { document: doc, versionChain: [doc] },
+    };
     return HttpResponse.json(response);
   }),
 
@@ -208,10 +210,8 @@ export const handlers = [
     return HttpResponse.json({
       success: true,
       data: {
-        totalDAOs: 25,
+        daoCount: 25,
         totalDocuments: 142,
-        activeDAOs: 20,
-        recentAttestations: 15,
       },
     });
   }),

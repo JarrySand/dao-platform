@@ -7,6 +7,11 @@ import { EmptyState } from '@/shared/components/feedback/EmptyState';
 import { useRecentActivity, type ActivityItem } from '../hooks/useRecentActivity';
 import { formatRelativeTime } from '@/shared/utils/format';
 import { cn } from '@/shared/utils/cn';
+import {
+  BuildingIcon as BuildingPlusIcon,
+  DocumentPlusIcon,
+  DocumentMinusIcon,
+} from '@/shared/components/icons';
 
 const TYPE_CONFIG: Record<
   ActivityItem['type'],
@@ -19,12 +24,12 @@ const TYPE_CONFIG: Record<
   },
   document_registered: {
     label: 'ドキュメント登録',
-    color: 'text-green-600 dark:text-green-400',
+    color: 'text-[var(--color-success)]',
     Icon: DocumentPlusIcon,
   },
   document_revoked: {
     label: 'ドキュメント無効化',
-    color: 'text-red-600 dark:text-red-400',
+    color: 'text-[var(--color-danger)]',
     Icon: DocumentMinusIcon,
   },
 };
@@ -69,25 +74,25 @@ export function RecentActivity() {
                 <Link
                   key={item.id}
                   href={item.link}
-                  className="flex items-start gap-3 rounded-lg p-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  className="flex items-start gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--color-bg-hover)]"
                 >
                   <div
                     className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700',
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-bg-hover)]',
                     )}
                   >
                     <config.Icon className={cn('h-4 w-4', config.color)} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-gray-900 dark:text-gray-100">
+                    <p className="text-sm text-skin-heading">
                       <span className={cn('font-medium', config.color)}>{config.label}</span>
                       {' - '}
                       {item.title}
                     </p>
                     {item.daoName && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.daoName}</p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">{item.daoName}</p>
                     )}
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
                       {formatRelativeTime(item.createdAt)}
                     </p>
                   </div>
@@ -98,51 +103,5 @@ export function RecentActivity() {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function BuildingPlusIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M4 16.5v-13h-.25a.75.75 0 010-1.5h12.5a.75.75 0 010 1.5H16v13h.25a.75.75 0 010 1.5h-12.5a.75.75 0 010-1.5H4zm3-11a.75.75 0 01.75-.75h.5a.75.75 0 010 1.5h-.5A.75.75 0 017 5.5zm.75 2.25a.75.75 0 000 1.5h.5a.75.75 0 000-1.5h-.5zM7 11a.75.75 0 01.75-.75h.5a.75.75 0 010 1.5h-.5A.75.75 0 017 11zm4-5.5a.75.75 0 01.75-.75h.5a.75.75 0 010 1.5h-.5A.75.75 0 0111 5.5zm.75 2.25a.75.75 0 000 1.5h.5a.75.75 0 000-1.5h-.5zM11 11a.75.75 0 01.75-.75h.5a.75.75 0 010 1.5h-.5A.75.75 0 0111 11zm-2 3.5a.75.75 0 01.75-.75h.5a.75.75 0 010 1.5h-.5A.75.75 0 019 14.5z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function DocumentPlusIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13zm7.75 6a.75.75 0 00-1.5 0v1.25H8a.75.75 0 000 1.5h1.25v1.25a.75.75 0 001.5 0v-1.25H12a.75.75 0 000-1.5h-1.25V9.5z" />
-    </svg>
-  );
-}
-
-function DocumentMinusIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M3 3.5A1.5 1.5 0 014.5 2h6.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0117 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 013 16.5v-13zM7.25 11a.75.75 0 000 1.5h5.5a.75.75 0 000-1.5h-5.5z" />
-    </svg>
   );
 }

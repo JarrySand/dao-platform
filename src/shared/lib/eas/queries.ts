@@ -33,7 +33,7 @@ export async function getDocumentByUID(uid: string): Promise<EASAttestation | nu
 }
 
 export async function getDocumentsByDAO(daoUID: string, limit = 100): Promise<EASAttestation[]> {
-  const schemaIds = [schemas.documentV1.uid, schemas.documentV2.uid].filter(
+  const schemaIds = [schemas.documentV3.uid].filter(
     (uid) => uid !== '0x0000000000000000000000000000000000000000000000000000000000000000',
   );
 

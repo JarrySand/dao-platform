@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Badge } from '@/shared/components/ui/Badge';
 import { Skeleton } from '@/shared/components/ui/Skeleton';
 import { EmptyState } from '@/shared/components/feedback/EmptyState';
-import { shortenAddress, formatDate } from '@/shared/utils/format';
+import { formatDate } from '@/shared/utils/format';
+import { ExplorerLink } from '@/shared/components/ExplorerLink';
 import { cn } from '@/shared/utils/cn';
 
 interface DocumentVersionHistoryProps {
@@ -43,9 +44,7 @@ export function DocumentVersionHistory({ documentId }: DocumentVersionHistoryPro
           <CardTitle>バージョン履歴</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-red-600 dark:text-red-400">
-            バージョン履歴の取得に失敗しました
-          </p>
+          <p className="text-sm text-[var(--color-danger)]">バージョン履歴の取得に失敗しました</p>
         </CardContent>
       </Card>
     );
@@ -72,7 +71,7 @@ export function DocumentVersionHistory({ documentId }: DocumentVersionHistoryPro
       <CardContent>
         <div className="relative">
           {/* Vertical timeline line */}
-          <div className="absolute left-5 top-0 h-full w-px bg-gray-200 dark:bg-gray-700" />
+          <div className="absolute left-5 top-0 h-full w-px bg-skin-border" />
 
           <div className="space-y-6">
             {versions.map((version, index) => {
@@ -84,16 +83,14 @@ export function DocumentVersionHistory({ documentId }: DocumentVersionHistoryPro
                     className={cn(
                       'relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2',
                       isLatest
-                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
-                        : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800',
+                        ? 'border-primary-500 bg-[var(--color-bg-hover)]'
+                        : 'border-skin-border bg-[var(--color-bg-secondary)]',
                     )}
                   >
                     <span
                       className={cn(
                         'text-xs font-bold',
-                        isLatest
-                          ? 'text-primary-600 dark:text-primary-400'
-                          : 'text-gray-500 dark:text-gray-400',
+                        isLatest ? 'text-skin-heading' : 'text-[var(--color-text-secondary)]',
                       )}
                     >
                       v{version.version}
@@ -103,25 +100,30 @@ export function DocumentVersionHistory({ documentId }: DocumentVersionHistoryPro
                   {/* Content */}
                   <div
                     className={cn(
-                      'flex-1 rounded-lg border p-3',
+                      'flex-1 rounded-xl border p-3',
                       isLatest
                         ? 'border-primary-200 bg-primary-50/50 dark:border-primary-800 dark:bg-primary-900/10'
-                        : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800',
+                        : 'border-skin-border bg-[var(--color-bg-secondary)]',
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {version.title}
-                      </span>
+                      <span className="text-sm font-medium text-skin-heading">{version.title}</span>
                       {isLatest && (
                         <Badge variant="success" size="sm">
                           最新
                         </Badge>
                       )}
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-text-secondary)]">
                       <span>登録日: {formatDate(version.createdAt)}</span>
-                      <span>登録者: {shortenAddress(version.attester)}</span>
+                      <span>
+                        登録者:{' '}
+                        <ExplorerLink
+                          type="address"
+                          value={version.attester}
+                          className="font-mono text-xs text-[var(--color-text-secondary)] hover:underline"
+                        />
+                      </span>
                     </div>
                     {version.ipfsCid && (
                       <div className="mt-1.5">
@@ -129,7 +131,7 @@ export function DocumentVersionHistory({ documentId }: DocumentVersionHistoryPro
                           href={`https://ipfs.io/ipfs/${version.ipfsCid}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-primary-600 hover:underline dark:text-primary-400"
+                          className="text-xs text-skin-heading hover:underline"
                         >
                           IPFS: {version.ipfsCid.slice(0, 16)}...
                         </a>

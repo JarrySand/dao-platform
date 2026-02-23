@@ -44,3 +44,14 @@ export const updateDAOSchema = createDAOSchema.partial().extend({
 });
 
 export type UpdateDAOFormData = z.infer<typeof updateDAOSchema>;
+
+export interface DAOCreationProgress {
+  step: 'signing' | 'confirming' | 'saving' | 'complete';
+  message: string;
+  progress: number;
+}
+
+export interface DAOCreationResult {
+  attestationUID: string;
+  transactionHash: string;
+}

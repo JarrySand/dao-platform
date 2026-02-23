@@ -17,12 +17,7 @@ import {
 import { useUpdateDAO } from '../hooks/useUpdateDAO';
 import { updateDAOSchema, type DAO, type UpdateDAOFormData } from '../types';
 import { cn } from '@/shared/utils/cn';
-
-const SIZE_OPTIONS = [
-  { label: '小規模 (1-50人)', value: 'small' },
-  { label: '中規模 (51-200人)', value: 'medium' },
-  { label: '大規模 (201人以上)', value: 'large' },
-];
+import { SIZE_OPTIONS } from '@/shared/constants/config';
 
 interface DAOEditFormProps {
   dao: DAO;
@@ -77,24 +72,21 @@ export function DAOEditForm({ dao, onSuccess, onCancel }: DAOEditFormProps) {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="w-full">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              説明
-            </label>
+            <label className="mb-1.5 block text-sm font-medium text-skin-heading">説明</label>
             <textarea
               className={cn(
-                'block w-full rounded-lg border px-3 py-2 text-sm transition-colors',
-                'bg-white text-gray-900 placeholder:text-gray-400',
-                'dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500',
+                'block w-full rounded-xl border px-3 py-2 text-sm transition-colors',
+                'bg-[var(--color-bg-secondary)] text-skin-heading placeholder:text-[var(--color-text-tertiary)]',
                 'focus:outline-none focus:ring-2 focus:ring-offset-0',
                 errors.description
-                  ? 'border-red-500 focus:ring-red-500 dark:border-red-400'
-                  : 'border-gray-300 focus:ring-primary-500 dark:border-gray-600',
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-skin-border focus:ring-skin-primary',
               )}
               rows={3}
               {...register('description')}
             />
             {errors.description && (
-              <p className="mt-1.5 text-sm text-red-600 dark:text-red-400" role="alert">
+              <p className="mt-1.5 text-sm text-[var(--color-danger)]" role="alert">
                 {errors.description.message}
               </p>
             )}
@@ -136,7 +128,7 @@ export function DAOEditForm({ dao, onSuccess, onCancel }: DAOEditFormProps) {
           />
 
           {updateDAO.isError && (
-            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            <p className="text-sm text-[var(--color-danger)]" role="alert">
               エラー:{' '}
               {updateDAO.error instanceof Error ? updateDAO.error.message : '更新に失敗しました'}
             </p>

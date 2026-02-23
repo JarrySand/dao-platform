@@ -5,14 +5,14 @@ export function createVerificationMessage(address: string): string {
   return `Sign this message to verify ownership of ${address}\nTimestamp: ${timestamp}`;
 }
 
-export function verifyWalletOwnership(
-  address: string,
-  signature: string,
+export function verifyWalletSignature(
   message: string,
+  signature: string,
+  expectedAddress: string,
 ): boolean {
   try {
     const recoveredAddress = verifyMessage(message, signature);
-    return recoveredAddress.toLowerCase() === address.toLowerCase();
+    return recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
   } catch {
     return false;
   }

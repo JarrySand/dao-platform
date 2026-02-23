@@ -28,15 +28,15 @@ export function useToast() {
 }
 
 const variantStyles: Record<ToastVariant, string> = {
-  success: 'border-green-200 bg-white dark:border-green-800 dark:bg-gray-800',
-  error: 'border-red-200 bg-white dark:border-red-800 dark:bg-gray-800',
-  info: 'border-blue-200 bg-white dark:border-blue-800 dark:bg-gray-800',
+  success: 'border-[var(--color-success)]/30 bg-[var(--color-bg-primary)]',
+  error: 'border-[var(--color-danger)]/30 bg-[var(--color-bg-primary)]',
+  info: 'border-skin-border bg-[var(--color-bg-primary)]',
 };
 
 const iconStyles: Record<ToastVariant, string> = {
-  success: 'text-green-500',
-  error: 'text-red-500',
-  info: 'text-blue-500',
+  success: 'text-[var(--color-success)]',
+  error: 'text-[var(--color-danger)]',
+  info: 'text-[var(--color-text-secondary)]',
 };
 
 const toastIcons: Record<ToastVariant, ReactNode> = {
@@ -107,7 +107,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <ToastPrimitive.Root
             key={t.id}
             className={cn(
-              'flex items-start gap-3 rounded-lg border p-4 shadow-lg',
+              'flex items-start gap-3 rounded-xl border p-4',
               'data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-full',
               'data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full',
               'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]',
@@ -121,17 +121,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           >
             <span className={cn('shrink-0', iconStyles[t.variant])}>{toastIcons[t.variant]}</span>
             <div className="flex-1">
-              <ToastPrimitive.Title className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <ToastPrimitive.Title className="text-sm font-semibold text-skin-heading">
                 {t.title}
               </ToastPrimitive.Title>
               {t.description && (
-                <ToastPrimitive.Description className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <ToastPrimitive.Description className="mt-1 text-sm text-[var(--color-text-secondary)]">
                   {t.description}
                 </ToastPrimitive.Description>
               )}
             </div>
             <ToastPrimitive.Close
-              className="shrink-0 rounded-md p-0.5 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-gray-500 dark:hover:text-gray-300"
+              className="shrink-0 rounded-lg p-0.5 text-[var(--color-text-tertiary)] hover:text-skin-heading focus:outline-none focus:ring-2 focus:ring-skin-primary"
               aria-label="Close"
             >
               <svg

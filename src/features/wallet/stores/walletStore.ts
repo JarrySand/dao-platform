@@ -150,6 +150,11 @@ export const useWalletStore = create<WalletStore>()(
         address: state.address,
         chainId: state.chainId,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.chainId) {
+          state.isCorrectNetwork = state.chainId === SEPOLIA_CHAIN_ID;
+        }
+      },
     },
   ),
 );

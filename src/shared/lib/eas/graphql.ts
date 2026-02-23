@@ -46,9 +46,3 @@ export async function executeEASQuery<T>(
 
   throw lastError;
 }
-
-export async function executeBatchQuery<T>(
-  queries: Array<{ query: string; variables?: Record<string, unknown> }>,
-): Promise<T[]> {
-  return Promise.all(queries.map(({ query, variables }) => executeEASQuery<T>(query, variables)));
-}

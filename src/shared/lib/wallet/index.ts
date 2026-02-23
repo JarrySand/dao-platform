@@ -1,1 +1,1 @@
-export { verifyWalletOwnership, createVerificationMessage } from './verify';
+export { createVerificationMessage, verifyWalletSignature } from './verify';

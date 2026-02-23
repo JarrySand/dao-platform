@@ -77,15 +77,15 @@ export default function MyDaoPage() {
               <Card className="h-full transition-shadow hover:shadow-md">
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between">
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{dao.name}</h3>
+                    <h3 className="font-semibold text-skin-heading">{dao.name}</h3>
                     <Badge variant={dao.status === 'active' ? 'success' : 'error'} size="sm">
                       {dao.status === 'active' ? '有効' : '無効'}
                     </Badge>
                   </div>
-                  <p className="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
+                  <p className="mt-2 line-clamp-2 text-sm text-[var(--color-text-secondary)]">
                     {dao.description}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-text-tertiary)]">
                     <span>{dao.location}</span>
                     <span>{dao.memberCount}人</span>
                     {dao.documentCount !== undefined && (

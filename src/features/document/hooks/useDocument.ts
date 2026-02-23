@@ -12,7 +12,7 @@ export function useDocument(id: string | null) {
       if (!result.success) {
         throw new Error(result.error);
       }
-      return result.data;
+      return result.data.document;
     },
     enabled: !!id,
     staleTime: 60_000,

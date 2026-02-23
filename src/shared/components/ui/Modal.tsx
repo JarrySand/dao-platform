@@ -1,6 +1,6 @@
 'use client';
 
-import { type ComponentPropsWithoutRef, type ElementRef, forwardRef, type ReactNode } from 'react';
+import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { cn } from '@/shared/utils/cn';
 
@@ -15,7 +15,7 @@ export const ModalContent = forwardRef<
   <DialogPrimitive.Portal>
     <DialogPrimitive.Overlay
       className={cn(
-        'fixed inset-0 z-50 bg-black/50 backdrop-blur-sm',
+        'fixed inset-0 z-50 bg-black/50',
         'data-[state=open]:animate-in data-[state=open]:fade-in-0',
         'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
       )}
@@ -24,8 +24,7 @@ export const ModalContent = forwardRef<
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
-        'rounded-xl border border-gray-200 bg-white p-6 shadow-xl',
-        'dark:border-gray-700 dark:bg-gray-800',
+        'rounded-xl border border-skin-border bg-[var(--color-bg-primary)] p-6',
         'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
         'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95',
         'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]',
@@ -51,7 +50,7 @@ export const ModalTitle = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-lg font-semibold text-gray-900 dark:text-gray-100', className)}
+    className={cn('text-lg font-semibold text-skin-heading', className)}
     {...props}
   />
 ));
@@ -63,7 +62,7 @@ export const ModalDescription = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-gray-500 dark:text-gray-400', className)}
+    className={cn('text-sm text-[var(--color-text-secondary)]', className)}
     {...props}
   />
 ));

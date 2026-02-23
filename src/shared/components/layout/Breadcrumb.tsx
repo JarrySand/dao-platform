@@ -21,16 +21,14 @@ export function Breadcrumb({ items, separator = '/', className }: BreadcrumbProp
           return (
             <li key={index} className="flex items-center gap-1.5">
               {index > 0 && (
-                <span className="text-gray-400 dark:text-gray-500" aria-hidden="true">
+                <span className="text-[var(--color-text-tertiary)]" aria-hidden="true">
                   {separator}
                 </span>
               )}
               {isLast || !item.href ? (
                 <span
                   className={cn(
-                    isLast
-                      ? 'font-medium text-gray-900 dark:text-gray-100'
-                      : 'text-gray-500 dark:text-gray-400',
+                    isLast ? 'font-medium text-skin-heading' : 'text-[var(--color-text-secondary)]',
                   )}
                   aria-current={isLast ? 'page' : undefined}
                 >
@@ -39,7 +37,7 @@ export function Breadcrumb({ items, separator = '/', className }: BreadcrumbProp
               ) : (
                 <Link
                   href={item.href}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="text-[var(--color-text-secondary)] hover:text-skin-heading"
                 >
                   {item.label}
                 </Link>

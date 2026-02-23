@@ -2,18 +2,26 @@
 export type {
   Document,
   DocumentType,
+  RegulationType,
+  OtherDocumentType,
   DocumentStatus,
   DocumentFilters,
   RegisterDocumentFormData,
-  VotingDocumentFields,
+  ProposalDocumentFields,
   DocumentRegistrationProgress,
   DocumentRegistrationResult,
   TransactionInfo,
 } from './types';
-export { registerDocumentSchema } from './types';
+export {
+  registerDocumentSchema,
+  REGULATION_TYPES,
+  OTHER_DOCUMENT_TYPES,
+  isRegulationType,
+  isOtherDocumentType,
+} from './types';
 
 // api
-export { fetchDocuments, fetchDocument, registerDocument, revokeDocument } from './api';
+export { fetchDocuments, fetchDocument, revokeDocument } from './api';
 
 // hooks
 export {
@@ -26,10 +34,4 @@ export {
 } from './hooks';
 
 // utils
-export {
-  buildDocumentFromAttestation,
-  determineSchemaVersion,
-  queryDocumentsByDAO,
-  queryDocumentByUID,
-  mergeV1V2Documents,
-} from './utils';
+export { buildDocumentFromAttestation } from './utils';

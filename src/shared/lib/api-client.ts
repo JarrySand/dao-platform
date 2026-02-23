@@ -1,8 +1,8 @@
-import { getIdToken } from './firebase/auth';
+import { createVerificationMessage } from '@/shared/lib/wallet/verify';
 
-interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
-  skipAuth?: boolean;
-}
+type RequestOptions = Omit<RequestInit, 'method' | 'body'>;
+
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 async function request<T>(
   method: string,
@@ -10,24 +10,20 @@ async function request<T>(
   body?: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { skipAuth = false, headers: customHeaders, ...rest } = options;
+  const { headers: customHeaders, signal: userSignal, ...rest } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(customHeaders as Record<string, string>),
   };
 
-  if (!skipAuth) {
-    const token = await getIdToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-  }
+  const signal = userSignal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
 
   const response = await fetch(url, {
     method,
     headers,
     body: body != null ? JSON.stringify(body) : undefined,
+    signal,
     ...rest,
   });
 
@@ -41,6 +37,23 @@ async function request<T>(
     return response.json() as Promise<T>;
   }
   return response.text() as unknown as T;
+}
+
+/**
+ * Sign a wallet verification and return the Authorization header value.
+ * Requires MetaMask (window.ethereum).
+ */
+export async function createWalletAuthHeader(address: string): Promise<string> {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('ウォレットが見つかりません');
+  }
+  const message = createVerificationMessage(address);
+  const signature: string = await window.ethereum.request({
+    method: 'personal_sign',
+    params: [message, address],
+  });
+  const payload = btoa(JSON.stringify({ address, signature, message }));
+  return `Wallet ${payload}`;
 }
 
 export const apiClient = {
@@ -60,14 +73,3 @@ export const apiClient = {
     return request<T>('DELETE', url, undefined, options);
   },
 };
-
-/**
- * Server-side: verify Firebase Auth token from request Authorization header.
- * Returns the token string if present, or null.
- * Full token verification requires firebase-admin (see firebase/admin.ts).
- */
-export function verifyAuth(request: Request): string | null {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  return authHeader.slice(7);
-}

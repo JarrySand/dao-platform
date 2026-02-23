@@ -2,7 +2,7 @@ import { Skeleton } from '@/shared/components/ui';
 
 function DAOCardSkeleton() {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+    <div className="rounded-xl border border-skin-border bg-[var(--color-bg-secondary)] p-6">
       <div className="mb-3 flex items-start justify-between gap-2">
         <Skeleton variant="text" className="h-6 w-2/3" />
         <Skeleton variant="rectangle" className="h-5 w-20" />

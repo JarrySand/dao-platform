@@ -1,12 +1,12 @@
 export { EAS_CONTRACT_ADDRESS, getEASInstance, getSignerFromBrowser } from './client';
 export {
   encodeDAOData,
-  encodeDocumentV1Data,
   encodeDocumentV2Data,
+  encodeDocumentV3Data,
   decodeDAOData,
   decodeDocumentData,
 } from './schema';
-export { executeEASQuery, executeBatchQuery } from './graphql';
+export { executeEASQuery } from './graphql';
 export {
   getDAOByUID,
   getDocumentByUID,
@@ -14,4 +14,11 @@ export {
   getAllDAOs,
   filterByDAOUID,
 } from './queries';
-export type { SchemaVersion, EASAttestation, DecodedDAOData, DecodedDocumentData } from './types';
+export type {
+  SchemaVersion,
+  EASAttestation,
+  EASAttestResult,
+  DecodedDAOData,
+  DecodedDocumentData,
+} from './types';
+export { resolveEASTransaction } from './types';

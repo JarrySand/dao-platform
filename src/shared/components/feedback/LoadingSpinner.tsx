@@ -15,11 +15,7 @@ export interface LoadingSpinnerProps {
 export function LoadingSpinner({ size = 'md', center = false, className }: LoadingSpinnerProps) {
   const spinner = (
     <svg
-      className={cn(
-        'animate-spin text-primary-600 dark:text-primary-400',
-        sizeStyles[size],
-        className,
-      )}
+      className={cn('animate-spin text-skin-heading', sizeStyles[size], className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"

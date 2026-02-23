@@ -18,11 +18,12 @@ interface DocumentListProps {
 const TYPE_TABS: { value: string; label: string }[] = [
   { value: 'all', label: 'すべて' },
   { value: 'articles', label: '定款' },
-  { value: 'meeting', label: '議事録' },
-  { value: 'token', label: 'トークン' },
-  { value: 'operation', label: '運営' },
-  { value: 'voting', label: '投票' },
-  { value: 'other', label: 'その他' },
+  { value: 'assembly_rules', label: 'DAO総会規程' },
+  { value: 'operation_rules', label: '運営規程' },
+  { value: 'token_rules', label: 'トークン規程' },
+  { value: 'custom_rules', label: 'カスタム規程' },
+  { value: 'proposal', label: '投票議題' },
+  { value: 'minutes', label: '議事録' },
 ];
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
@@ -37,10 +38,7 @@ function DocumentSkeletons() {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="space-y-3 rounded-xl border border-gray-200 p-6 dark:border-gray-700"
-        >
+        <div key={i} className="space-y-3 rounded-xl border border-skin-border p-6">
           <Skeleton className="h-5 w-3/4" />
           <Skeleton className="h-4 w-1/3" />
           <Skeleton className="h-4 w-1/2" />
@@ -90,6 +88,16 @@ export function DocumentList({ daoId, isAdmin }: DocumentListProps) {
   );
 
   const handleRevoke = (id: string) => {
+    // C4: Only allow revoking the latest version in a chain
+    if (documents) {
+      const hasSuccessor = (documents as Document[]).some(
+        (d) => d.previousVersionId === id && d.status !== 'revoked',
+      );
+      if (hasSuccessor) {
+        window.alert('最新版のみ失効できます。より新しいバージョンが存在します。');
+        return;
+      }
+    }
     if (window.confirm('このドキュメントを失効させますか？')) {
       revokeMutation.mutate(id);
     }
@@ -185,7 +193,7 @@ export function DocumentList({ daoId, isAdmin }: DocumentListProps) {
           >
             前へ
           </Button>
-          <span className="text-sm text-gray-600 dark:text-gray-400">
+          <span className="text-sm text-[var(--color-text-secondary)]">
             {page} / {totalPages}
           </span>
           <Button

@@ -1,50 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc } from 'firebase/firestore';
+import { getDocs, query, where, orderBy, collection } from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase/client';
+import type { FirebaseDocumentData } from '@/shared/lib/firebase/types';
+import { firestoreToDocument } from '@/shared/lib/firebase/converters';
 import { setCorsHeaders } from '@/shared/lib/cors';
-import { verifyAuth } from '@/shared/lib/api-client';
-import { getDocumentsByDAO } from '@/shared/lib/eas/queries';
-import { decodeDocumentData } from '@/shared/lib/eas/schema';
+import { sanitizeErrorMessage } from '@/shared/lib/middleware';
+import { logger } from '@/shared/utils/logger';
 import type { ApiResponse, ApiErrorResponse } from '@/shared/types/api';
 import { HTTP_STATUS } from '@/shared/types/api';
-import { registerDocumentSchema } from '@/features/document/types';
 import type { Document, DocumentType, DocumentStatus } from '@/features/document/types';
-import type { EASAttestation } from '@/shared/lib/eas/types';
-
-function parseDocument(attestation: EASAttestation): Document {
-  const decoded = decodeDocumentData(attestation.decodedDataJson);
-
-  return {
-    id: attestation.id,
-    daoId: decoded.daoAttestationUID,
-    title: decoded.documentTitle,
-    documentType: decoded.documentType as DocumentType,
-    hash: decoded.documentHash,
-    ipfsCid: decoded.ipfsCid,
-    version: decoded.version,
-    previousVersionId: decoded.previousVersionId || null,
-    status: attestation.revoked ? 'revoked' : 'active',
-    attester: attestation.attester,
-    votingTxHash: decoded.votingTxHash ?? null,
-    votingChainId: decoded.votingChainId ?? null,
-    schemaVersion: decoded.schemaVersion,
-    createdAt: new Date(attestation.time * 1000).toISOString(),
-    updatedAt: new Date(attestation.time * 1000).toISOString(),
-  };
-}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = request.nextUrl;
     const daoId = searchParams.get('daoId');
+    const hashParam = searchParams.get('hash');
+
+    // Hash-based search (for document verification) — daoId not required
+    if (hashParam) {
+      const hashQuery = query(collection(db, 'documents'), where('hash', '==', hashParam));
+      const hashSnapshot = await getDocs(hashQuery);
+      const results: Document[] = hashSnapshot.docs.map((docSnap) => {
+        const fb = docSnap.data() as FirebaseDocumentData;
+        return firestoreToDocument(docSnap.id, fb);
+      });
+      const body: ApiResponse<{ data: Document[]; nextCursor: string | null; hasMore: boolean }> = {
+        success: true,
+        data: { data: results, nextCursor: null, hasMore: false },
+      };
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
+    }
 
     if (!daoId) {
       const body: ApiErrorResponse = {
         success: false,
-        error: 'daoId query parameter is required',
+        error: 'daoId or hash query parameter is required',
         code: 'MISSING_PARAM',
       };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.BAD_REQUEST }));
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.BAD_REQUEST }), request);
     }
 
     const typeFilter = searchParams.get('type') as DocumentType | null;
@@ -53,9 +46,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const cursor = searchParams.get('cursor');
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 100);
 
-    const attestations = await getDocumentsByDAO(daoId);
-
-    let documents = attestations.map(parseDocument);
+    // Query documents filtered by daoId at the Firestore level
+    const q = query(
+      collection(db, 'documents'),
+      where('daoId', '==', daoId),
+      orderBy('createdAt', 'desc'),
+    );
+    const snapshot = await getDocs(q);
+    let documents: Document[] = [];
+    for (const docSnap of snapshot.docs) {
+      const fb = docSnap.data() as FirebaseDocumentData;
+      documents.push(firestoreToDocument(docSnap.id, fb));
+    }
 
     // Apply type filter
     if (typeFilter) {
@@ -87,93 +89,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ? (paginatedDocs[paginatedDocs.length - 1]?.id ?? null)
         : null;
 
-    const body: ApiResponse<{ items: Document[]; nextCursor: string | null }> = {
+    const hasMore = startIndex + limit < documents.length;
+    const body: ApiResponse<{ data: Document[]; nextCursor: string | null; hasMore: boolean }> = {
       success: true,
-      data: { items: paginatedDocs, nextCursor },
+      data: { data: paginatedDocs, nextCursor, hasMore },
     };
 
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }));
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
-  }
-}
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  try {
-    const token = verifyAuth(request);
-    if (!token) {
-      const body: ApiErrorResponse = { success: false, error: 'Unauthorized' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }));
-    }
-
-    const rawBody: unknown = await request.json();
-    const parsed = registerDocumentSchema.safeParse(rawBody);
-
-    if (!parsed.success) {
-      const details: Record<string, string[]> = {};
-      for (const issue of parsed.error.issues) {
-        const key = issue.path.join('.');
-        if (!details[key]) details[key] = [];
-        details[key].push(issue.message);
-      }
-      const body: ApiErrorResponse = {
-        success: false,
-        error: 'Validation failed',
-        code: 'VALIDATION_ERROR',
-        details,
-      };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNPROCESSABLE_ENTITY }));
-    }
-
-    const { title, documentType, version, previousVersionId, votingTxHash, votingChainId } =
-      parsed.data;
-
-    const tempId = `pending_${Date.now()}`;
-    const now = new Date().toISOString();
-
-    // Save metadata to Firestore
-    await setDoc(doc(db, 'documents', tempId), {
-      title,
-      documentType,
-      hash: '',
-      ipfsCid: '',
-      version,
-      status: 'active' as const,
-      daoId: '',
-      attestationUID: tempId,
-      createdAt: now,
-      updatedAt: now,
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('documents_get_failed', {
+      route: '/api/documents',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
     });
-
-    const document: Document = {
-      id: tempId,
-      daoId: '',
-      title,
-      documentType,
-      hash: '',
-      ipfsCid: '',
-      version,
-      previousVersionId: previousVersionId ?? null,
-      status: 'active',
-      attester: '',
-      votingTxHash: votingTxHash ?? null,
-      votingChainId: votingChainId ?? null,
-      schemaVersion: 'v2',
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const body: ApiResponse<Document> = { success: true, data: document };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.CREATED }));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
-export async function OPTIONS(): Promise<NextResponse> {
-  return setCorsHeaders(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return setCorsHeaders(new NextResponse(null, { status: 204 }), request);
 }

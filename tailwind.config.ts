@@ -10,27 +10,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: 'var(--color-primary-50)',
-          100: 'var(--color-primary-100)',
-          200: 'var(--color-primary-200)',
-          300: 'var(--color-primary-300)',
-          400: 'var(--color-primary-400)',
-          500: 'var(--color-primary-500)',
-          600: 'var(--color-primary-600)',
-          700: 'var(--color-primary-700)',
-          800: 'var(--color-primary-800)',
-          900: 'var(--color-primary-900)',
-          950: 'var(--color-primary-950)',
-        },
-        surface: {
-          DEFAULT: 'var(--color-surface)',
-          secondary: 'var(--color-surface-secondary)',
-          tertiary: 'var(--color-surface-tertiary)',
-        },
-        border: {
-          DEFAULT: 'var(--color-border)',
-          secondary: 'var(--color-border-secondary)',
+        skin: {
+          bg: 'var(--color-bg-primary)',
+          'block-bg': 'var(--color-bg-secondary)',
+          'input-bg': 'var(--color-bg-tertiary)',
+          'hover-bg': 'var(--color-bg-hover)',
+          'active-bg': 'var(--color-bg-active)',
+          heading: 'var(--color-text-primary)',
+          text: 'var(--color-text-secondary)',
+          link: 'var(--color-text-primary)',
+          border: 'var(--color-border)',
+          'border-hover': 'var(--color-border-hover)',
+          primary: 'var(--color-primary)',
+          danger: 'var(--color-danger)',
+          success: 'var(--color-success)',
         },
       },
       fontFamily: {

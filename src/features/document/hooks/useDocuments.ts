@@ -12,7 +12,7 @@ export function useDocuments(filters: DocumentFilters) {
       if (!result.success) {
         throw new Error(result.error);
       }
-      return result.data;
+      return result.data.data;
     },
     enabled: !!filters.daoId,
     staleTime: 60_000,

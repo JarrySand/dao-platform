@@ -21,7 +21,7 @@
 
 ### 0.2 スキーマ共存原則
 
-EAS スキーマはオンチェーンで不変である。v2 では Document スキーマを新規デプロイし、v1 スキーマのアテステーションは読み取り専用で後方互換を維持する。
+EAS スキーマはオンチェーンで不変である。v3 では Document スキーマを新規デプロイし（`version` フィールド削除）、v1/v2 スキーマのアテステーションは読み取り専用とする。現在の実装では v1/v2 はスコープ外とし、v3 スキーマのみをクエリ対象としている。
 
 ---
 
@@ -80,14 +80,13 @@ EAS スキーマはオンチェーンで不変である。v2 では Document ス
 
 ### 1.5 バックエンド・データベース
 
-| カテゴリ       | ライブラリ              | バージョン | 用途                                            |
-| -------------- | ----------------------- | ---------- | ----------------------------------------------- |
-| DB             | Firebase Firestore      | 11         | 表示用メタデータ + EAS クエリキャッシュ（§0.1） |
-| 認証           | Firebase Authentication | 11         | メール/パスワード認証                           |
-| 認証（server） | Firebase Admin SDK      | 12         | API Route でのトークン検証（サーバーサイド）    |
-| ストレージ     | Pinata (IPFS)           | latest     | ドキュメントファイル保存                        |
+| カテゴリ   | ライブラリ          | バージョン | 用途                                            |
+| ---------- | ------------------- | ---------- | ----------------------------------------------- |
+| DB         | Firebase Firestore  | 11         | 表示用メタデータ + EAS クエリキャッシュ（§0.1） |
+| 認証       | MetaMask ウォレット | —          | ウォレット接続による認証（Firebase Auth 廃止）  |
+| ストレージ | Pinata (IPFS)       | latest     | ドキュメントファイル保存                        |
 
-**v1からの変更点**: Firebase Auth を正式採用（v1は localStorage ベース）、Firebase Admin SDK を追加
+**v1からの変更点**: Firebase Auth を廃止しウォレット接続のみに変更（v1は localStorage ベース）。認証 = MetaMask ウォレット接続
 
 **IPFS プロバイダー決定:**
 
@@ -202,14 +201,7 @@ src/
 │   │   │   │   └── page.tsx          #   DAO作成ウィザード [NEW]
 │   │   │   └── [id]/
 │   │   │       └── page.tsx          #   My DAO管理
-│   │   └── layout.tsx                #   認証チェック付きレイアウト
-│   │
-│   ├── login/
-│   │   └── page.tsx                  #   ログイン
-│   ├── signup/
-│   │   └── page.tsx                  #   サインアップ
-│   ├── reset-password/
-│   │   └── page.tsx                  #   パスワードリセット
+│   │   └── layout.tsx                #   認証チェック付きレイアウト（AuthGuard でウォレット接続を要求）
 │   │
 │   ├── api/                          # API Routes
 │   │   ├── daos/
@@ -289,18 +281,15 @@ src/
 │   │   │   └── documentQueryService.ts    # クエリ
 │   │   └── index.ts
 │   │
-│   ├── auth/                         # 認証機能
+│   ├── auth/                         # 認証機能（ウォレット接続ベース）
 │   │   ├── components/
-│   │   │   ├── AuthGuard.tsx         #   ルート保護
-│   │   │   ├── LoginForm.tsx
-│   │   │   ├── SignupForm.tsx
-│   │   │   ├── WalletLogin.tsx
+│   │   │   ├── AuthGuard.tsx         #   ルート保護（ウォレット未接続時に接続促進UI表示）
 │   │   │   └── index.ts
 │   │   ├── hooks/
-│   │   │   ├── useAuth.ts
+│   │   │   ├── useAuth.ts            #   walletStore のセレクターフック
 │   │   │   └── index.ts
 │   │   ├── stores/
-│   │   │   ├── authStore.ts          #   Zustand
+│   │   │   ├── authStore.ts          #   walletStore のヘルパー（useIsWalletConnected 等）
 │   │   │   └── index.ts
 │   │   └── index.ts
 │   │
@@ -389,7 +378,6 @@ src/
 │   │   ├── firebase/
 │   │   │   ├── client.ts             #   Firestore クライアント初期化
 │   │   │   ├── admin.ts              #   Firebase Admin SDK 初期化（サーバーサイド） [NEW]
-│   │   │   ├── auth.ts               #   Firebase Auth ヘルパー（クライアントサイド） [NEW]
 │   │   │   └── types.ts              #   Firebase 型変換
 │   │   ├── eas/
 │   │   │   ├── client.ts             #   EAS SDK 初期化
@@ -448,12 +436,12 @@ src/
 
 ## 3. EAS スキーマ
 
-### 3.1 方針: DAO スキーマ維持 + Document スキーマ v2 新規デプロイ
+### 3.1 方針: DAO スキーマ維持 + Document スキーマ v3 新規デプロイ
 
 - **DAO スキーマ**: v1 デプロイ済みをそのまま使用。DAO のアイデンティティ（名前・管理者）はオンチェーンで証明済み。説明文等の表示用メタデータは Firebase で管理する。
-- **Document スキーマ**: v2 を**新規デプロイ**する。v1 スキーマには `documentType` が存在せず（タイトルから推測していた）、投票 TX リンクもなく、オンチェーンアンカリング原則（§0.1）を満たせないため。
+- **Document スキーマ**: v3 を**新規デプロイ**済み。v2 から `version` フィールドを削除（`previousVersionId` チェーンから導出する方式に変更）。カテゴリ ID を合同会社型 DAO 準拠の体系に変更。詳細は [document-categories.md](./document-categories.md) を参照。
 
-v1 アテステーションは v1 スキーマ UID で読み取り専用の後方互換を維持する（§3.4）。
+v1/v2 アテステーションは現在スコープ外。v3 スキーマのみをクエリ対象としている。
 
 ### 3.2 スキーマ定義（Sepolia）
 
@@ -462,8 +450,14 @@ DAO スキーマ (v1 — 維持):
   UID: 0x087cc98cb9696a0b70363e43ac372f19db9da2ed6a84bbaf3b4b86b039c5f9e1
   定義: "string daoUID, string daoName, address adminAddress"
 
-Document スキーマ v2 (新規デプロイ):
-  UID: （デプロイ後に記入）
+Document スキーマ v3 (デプロイ済み — 現行):
+  UID: 0xc1c9b4dc5dedd27304df8b5d564f618a32ec007daebb4022a6059f31e393f51a
+  定義: "bytes32 daoAttestationUID, string documentTitle, string documentType,
+         bytes32 documentHash, string ipfsCid, bytes32 previousVersionId,
+         bytes32 votingTxHash, uint256 votingChainId"
+
+Document スキーマ v2 (読み取り専用):
+  UID: 0xc1f097f...（env: NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID）
   定義: "bytes32 daoAttestationUID, string documentTitle, string documentType,
          bytes32 documentHash, string ipfsCid, string version,
          bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId"
@@ -474,24 +468,33 @@ Document スキーマ v1 (読み取り専用):
          string ipfsCid, string version, bytes32 previousVersionId"
 ```
 
-**Document スキーマ v1 → v2 の変更点:**
+**Document スキーマ v2 → v3 の変更点:**
 
-| フィールド    | v1       | v2            | 変更理由                                           |
+| フィールド | v2             | v3       | 変更理由                                                         |
+| ---------- | -------------- | -------- | ---------------------------------------------------------------- |
+| version    | string（存在） | **削除** | `previousVersionId` チェーンから導出可能。オンチェーンの冗長削除 |
+
+**Document スキーマ v1 → v3 の変更点:**
+
+| フィールド    | v1       | v3            | 変更理由                                           |
 | ------------- | -------- | ------------- | -------------------------------------------------- |
 | documentType  | **なし** | string (NEW)  | 文書分類をオンチェーンに固定。タイトル推測を廃止   |
 | votingTxHash  | **なし** | bytes32 (NEW) | 投票 TX とのオンチェーンリンク。非投票文書は `0x0` |
 | votingChainId | **なし** | uint256 (NEW) | 投票が実行されたチェーン。非投票文書は `0`         |
+| version       | string   | **削除**      | `previousVersionId` チェーンから導出               |
 
-**v1 から引き継ぐフィールド（型を正確に記載）:**
+**v3 スキーマのフィールド一覧:**
 
-| フィールド        | 型      | 用途                                       |
-| ----------------- | ------- | ------------------------------------------ |
-| daoAttestationUID | bytes32 | 所属 DAO への参照                          |
-| documentTitle     | string  | 文書タイトル                               |
-| documentHash      | bytes32 | SHA-256 ハッシュ（改ざん検知）             |
-| ipfsCid           | string  | IPFS コンテンツ ID                         |
-| version           | string  | バージョン文字列                           |
-| previousVersionId | bytes32 | 前バージョンへの参照（バージョンチェーン） |
+| フィールド        | 型      | 用途                                         |
+| ----------------- | ------- | -------------------------------------------- |
+| daoAttestationUID | bytes32 | 所属 DAO への参照                            |
+| documentTitle     | string  | 文書タイトル                                 |
+| documentType      | string  | カテゴリ ID（articles, assembly_rules, ...） |
+| documentHash      | bytes32 | SHA-256 ハッシュ（改ざん検知）               |
+| ipfsCid           | string  | IPFS コンテンツ ID                           |
+| previousVersionId | bytes32 | 前バージョンへの参照（初版は 0x0）           |
+| votingTxHash      | bytes32 | 投票 TX ハッシュ（proposal のみ、他は 0x0）  |
+| votingChainId     | uint256 | 投票チェーン ID（proposal のみ、他は 0）     |
 
 ### 3.3 データ配置マトリクス
 
@@ -501,9 +504,10 @@ Document スキーマ v1 (読み取り専用):
 | ------------------------------ | ----------------------- | ----------------------------- | -------------------------------------------- |
 | DAO 名・管理者アドレス         | ✅ DAO スキーマ         | キャッシュ                    | 証跡（DAO のアイデンティティ）               |
 | DAO 説明文・所在地・ロゴ等     | —                       | ✅ 表示用メタデータ           | 表示用（改ざんされてもガバナンスに影響なし） |
-| 文書タイトル・タイプ・ハッシュ | ✅ Document v2 スキーマ | キャッシュ                    | 証跡（文書の真正性・分類）                   |
-| 文書 IPFS CID・バージョン      | ✅ Document v2 スキーマ | キャッシュ                    | 証跡（文書の所在・履歴）                     |
-| 投票 TX リンク                 | ✅ Document v2 スキーマ | キャッシュ                    | 証跡（議決と文書の紐付け）                   |
+| 文書タイトル・タイプ・ハッシュ | ✅ Document v3 スキーマ | キャッシュ                    | 証跡（文書の真正性・分類）                   |
+| 文書 IPFS CID                  | ✅ Document v3 スキーマ | キャッシュ                    | 証跡（文書の所在）                           |
+| バージョン番号                 | —（v3 で削除）          | ✅ number（導出値）           | `previousVersionId` チェーンから算出         |
+| 投票 TX リンク                 | ✅ Document v3 スキーマ | キャッシュ                    | 証跡（議決と文書の紐付け）                   |
 | バージョンチェーン             | ✅ previousVersionId    | キャッシュ                    | 証跡（改定履歴のオンチェーン追跡）           |
 | ダッシュボード統計             | —                       | ✅ 集計キャッシュ             | 派生データ（EAS から再計算可能）             |
 | メンバー管理 [P1]              | —                       | ✅ members[], roles[]         | 表示用（Alpha 後に検討）                     |
@@ -547,13 +551,13 @@ interface FirebaseDocumentData {
   // EAS キャッシュ（クエリ高速化用）
   daoAttestationUID: string;
   documentTitle: string;
-  documentType: string; // v1 アテステーションの場合は "unknown"
+  documentType: string; // カテゴリ ID (articles, assembly_rules, operation_rules, token_rules, custom_rules, proposal, minutes)
   documentHash: string;
   ipfsCid: string;
-  version: string;
+  version: number; // previousVersionId チェーンから導出（EAS にはない）
   previousVersionId: string;
-  votingTxHash: string; // v1 アテステーションの場合は "0x0"
-  votingChainId: number; // v1 アテステーションの場合は 0
+  votingTxHash: string; // proposal のみ、他は "0x0"
+  votingChainId: number; // proposal のみ、他は 0
   // 表示用メタデータ（EAS にない情報）
   fileName: string; // アップロード時のオリジナルファイル名
   fileSize: number; // バイト数
@@ -571,38 +575,21 @@ interface FirebaseDocumentData {
 ### 3.5 スキーマ共存と後方互換
 
 ```
-v2 アプリケーション:
-  ├─ 新規文書登録 → Document v2 スキーマで作成
-  ├─ v2 文書の読み取り → v2 スキーマ UID で GraphQL 検索
-  └─ v1 文書の読み取り → v1 スキーマ UID で GraphQL 検索（後方互換）
-       ├─ documentType → "unknown" として表示（v1 スキーマにフィールドなし）
-       ├─ votingTxHash → "なし" として表示
-       └─ v1 フィールド名の差異は変換レイヤーで吸収
+現行アプリケーション:
+  ├─ 新規文書登録 → Document v3 スキーマで作成（version フィールドなし）
+  ├─ v3 文書の読み取り → v3 スキーマ UID で GraphQL 検索
+  └─ v1/v2 文書 → 現在はスコープ外（将来の後方互換で対応可能）
 ```
 
-**v1+v2 統合クエリ戦略:**
+**v3 のみクエリ戦略:**
 
-EAS GraphQL の `schemaId` フィルターは `equals` のみで `IN` をサポートしない。
-v1 と v2 のドキュメントを統合表示するには、GraphQL エイリアスを使って1リクエストで両方取得する。
+現在はテストデータのみのため、v1/v2 スキーマはスコープ外としている。v3 スキーマ UID のみでクエリを実行する。
 
 ```graphql
 query DocumentsByDAO($daoUID: String!) {
-  v2Docs: attestations(
+  v3Docs: attestations(
     where: {
-      schemaId: { equals: $documentV2SchemaId }
-      decodedDataJson: { contains: $daoUID }
-      revoked: { equals: false }
-    }
-  ) {
-    id
-    decodedDataJson
-    timeCreated
-    attester
-  }
-
-  v1Docs: attestations(
-    where: {
-      schemaId: { equals: $documentV1SchemaId }
+      schemaId: { equals: $documentV3SchemaId }
       decodedDataJson: { contains: $daoUID }
       revoked: { equals: false }
     }
@@ -615,7 +602,7 @@ query DocumentsByDAO($daoUID: String!) {
 }
 ```
 
-レスポンスは `shared/lib/eas/schema.ts` の変換レイヤーで統一フォーマットに変換する。
+レスポンスは `shared/lib/eas/schema.ts` の変換レイヤーで統一フォーマットに変換する。将来 v1/v2 の後方互換が必要になった場合は、GraphQL エイリアスで複数スキーマを同時クエリする方式で対応可能。
 
 ### 3.5 スキーマ設定の管理
 
@@ -627,16 +614,27 @@ export const CHAIN_CONFIG = {
     easContractAddress: '0xC2679fBD37d54388Ce493F1DB75320D236e1815e',
     schemaRegistryAddress: '0x0a7E2Ff54e76B8E6659aedc9103FB21c038050D0',
     schemas: {
-      dao: '0x087cc98cb9696a0b70363e43ac372f19db9da2ed6a84bbaf3b4b86b039c5f9e1',
-      documentV2: '（デプロイ後に記入）',
-      documentV1: '0xbc9fcde5f231a0df136d1685c8d9c043c857ab7135b0b7ba0fe8c6567bcbc152', // 読み取り専用
-    },
-    schemaDefinitions: {
-      dao: 'string daoUID,string daoName,address adminAddress',
-      documentV2:
-        'bytes32 daoAttestationUID,string documentTitle,string documentType,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId,bytes32 votingTxHash,uint256 votingChainId',
-      documentV1:
-        'bytes32 daoAttestationUID,string documentTitle,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId',
+      dao: {
+        uid: '0x087cc98cb9696a0b70363e43ac372f19db9da2ed6a84bbaf3b4b86b039c5f9e1',
+        schema: 'string daoUID,string daoName,address adminAddress',
+      },
+      documentV3: {
+        uid: '0xc1c9b4dc5dedd27304df8b5d564f618a32ec007daebb4022a6059f31e393f51a',
+        schema:
+          'bytes32 daoAttestationUID,string documentTitle,string documentType,bytes32 documentHash,string ipfsCid,bytes32 previousVersionId,bytes32 votingTxHash,uint256 votingChainId',
+      },
+      documentV2: {
+        uid: process.env.NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID || '',
+        schema:
+          'bytes32 daoAttestationUID,string documentTitle,string documentType,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId,bytes32 votingTxHash,uint256 votingChainId',
+        readOnly: true,
+      },
+      documentV1: {
+        uid: '0xbc9fcde5f231a0df136d1685c8d9c043c857ab7135b0b7ba0fe8c6567bcbc152',
+        schema:
+          'bytes32 daoAttestationUID,string documentTitle,bytes32 documentHash,string ipfsCid,string version,bytes32 previousVersionId',
+        readOnly: true,
+      },
     },
     graphqlEndpoint: 'https://sepolia.easscan.org/graphql',
     explorerUrl: 'https://sepolia.etherscan.io',
@@ -681,9 +679,9 @@ Home (app/(public)/page.tsx)
             │  サーバーサイドキャッシュ: 60秒
             ├─ EAS GraphQL: aggregateAttestation で件数取得
             │    ├─ DAO スキーマの総件数
-            │    ├─ Document v1 + v2 スキーマの総件数
+            │    ├─ Document v3 スキーマの総件数
             │    └─ 1リクエストでバッチ取得（GraphQL エイリアス）
-            └─ レスポンス: { daoCount, documentCount }
+            └─ レスポンス: { daoCount, totalDocuments }
 ```
 
 **EAS GraphQL の件数取得クエリ:**
@@ -697,15 +695,8 @@ query PlatformStats {
       _all
     }
   }
-  docV2Count: aggregateAttestation(
-    where: { schemaId: { equals: $docV2SchemaId }, revoked: { equals: false } }
-  ) {
-    _count {
-      _all
-    }
-  }
-  docV1Count: aggregateAttestation(
-    where: { schemaId: { equals: $docV1SchemaId }, revoked: { equals: false } }
+  totalDocuments: aggregateAttestation(
+    where: { schemaId: { equals: $docV3SchemaId }, revoked: { equals: false } }
   ) {
     _count {
       _all
@@ -769,36 +760,36 @@ DocumentRegisterForm (マルチステップ)
        ├─ Step 2: IPFS アップロード（API Route /api/upload）
        ├─ Step 3: EAS アテステーション作成（クライアント、Signer必要）
        │    └─ Document v2 スキーマでエンコード
-       │         ├─ documentType: ユーザーが選択（articles/meeting/token/operation/voting/other）
-       │         ├─ votingTxHash: 0x0（非投票文書）
-       │         └─ votingChainId: 0（非投票文書）
-       └─ Step 4: Firebase キャッシュ保存（API Route、任意）
+       │         ├─ documentType: ユーザーが選択（articles/assembly_rules/operation_rules/token_rules/custom_rules/proposal/minutes）
+       │         ├─ votingTxHash: 0x0（proposal 以外）
+       │         └─ votingChainId: 0（proposal 以外）
+       └─ Step 4: Firebase キャッシュ保存（API Route /api/sync/:uid、ベストエフォート）
 
        各ステップで onProgress コールバック → UI 進捗表示
 ```
 
-### 4.4 投票ドキュメント登録フロー [NEW]
+### 4.4 投票議題（proposal）登録フロー
 
-投票ドキュメントは独立した専用フォームではなく、`DocumentRegisterForm` の条件分岐として実装する。
-ユーザーが documentType で `voting` を選択すると、追加フィールド（votingTxHash, votingChainId）が表示される。
+投票議題は独立した専用フォームではなく、`DocumentRegisterForm` の条件分岐として実装する。
+ユーザーが documentType で `proposal` を選択すると、追加フィールド（votingTxHash, votingChainId）が表示される。
 
 ```
-DocumentRegisterForm (documentType = "voting" 選択時)
+DocumentRegisterForm (documentType = "proposal" 選択時)
   │
   └─ useRegisterDocument mutation
        │
        ├─ Step 1: SHA-256 ハッシュ計算（クライアント）
        ├─ Step 2: IPFS アップロード（API Route /api/upload）
        ├─ Step 3: EAS アテステーション作成（クライアント）
-       │    └─ Document v2 スキーマでエンコード
-       │         ├─ documentType: "voting"
-       │         ├─ votingTxHash: ユーザー入力（必須、voting 選択時のみ表示）
+       │    └─ Document v3 スキーマでエンコード（encodeDocumentV3Data）
+       │         ├─ documentType: "proposal"
+       │         ├─ votingTxHash: ユーザー入力（必須、proposal 選択時のみ表示）
        │         └─ votingChainId: ユーザー入力（必須、投票が実行されたチェーン）
-       └─ Step 4: Firebase キャッシュ保存（API Route、任意）
+       └─ Step 4: Firebase キャッシュ保存（API Route /api/sync/:uid、ベストエフォート）
 
 ※ 投票 TX リンクはすべてオンチェーン（EAS）に保存。
 ※ votingContract, proposalId は txHash + chainId から追跡可能なため、スキーマには含めない。
-※ 非投票文書の場合: votingTxHash = 0x0, votingChainId = 0
+※ proposal 以外の文書: votingTxHash = 0x0, votingChainId = 0
 ```
 
 ### 4.5 ドキュメント失効フロー
@@ -832,7 +823,6 @@ My DAO 管理ページ（管理者のみ）
   └─ 2. useDeactivateDAO mutation
        │
        └─ API Route PUT /api/daos/[id]
-            ├─ Firebase Auth トークン検証
             ├─ EIP-191 署名によるウォレット所有権検証（§9.5）
             ├─ adminAddress 一致チェック
             ├─ Firebase: status を "inactive" に更新
@@ -884,11 +874,11 @@ Dashboard (app/(auth)/dashboard/page.tsx)
 
 ### 5.3 認証
 
-| v1 の問題                        | v2 の解決策             |
-| -------------------------------- | ----------------------- |
-| localStorage にユーザー情報保存  | Firebase Authentication |
-| デモ認証（ハードコード資格情報） | 廃止                    |
-| セッション管理なし               | Firebase Auth トークン  |
+| v1 の問題                        | v2 の解決策                                    |
+| -------------------------------- | ---------------------------------------------- |
+| localStorage にユーザー情報保存  | MetaMask ウォレット接続（Zustand walletStore） |
+| デモ認証（ハードコード資格情報） | 廃止                                           |
+| セッション管理なし               | ウォレット接続状態 + EIP-191 署名検証          |
 
 ### 5.4 データ処理
 
@@ -1268,83 +1258,68 @@ NODE_ENV=development
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  認証方式1: メール/パスワード                     │
-│                                                   │
-│  サインアップ                                     │
-│    1. メール + パスワード入力                     │
-│    2. Firebase Auth createUserWithEmailAndPassword │
-│    3. 確認メール送信（Firebase 自動）             │
-│    4. メール確認後にアカウント有効化               │
-│                                                   │
-│  ログイン                                         │
-│    1. メール + パスワード入力                     │
-│    2. Firebase Auth signInWithEmailAndPassword     │
-│    3. Firebase ID トークン取得                     │
-│    4. Zustand authStore に保存                     │
-│                                                   │
-│  パスワードリセット                               │
-│    1. メール入力                                   │
-│    2. Firebase Auth sendPasswordResetEmail          │
-│    3. メールのリンクからリセットフォームへ         │
-└─────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────┐
-│  認証方式2: ウォレット接続                        │
+│  認証方式: ウォレット接続（MetaMask）              │
 │                                                   │
 │  接続                                             │
 │    1. MetaMask window.ethereum.request             │
 │    2. eth_requestAccounts → アドレス取得           │
-│    3. Zustand walletStore に保存                   │
+│    3. Zustand walletStore に保存（persist）        │
 │    4. チェーンID 確認 → Sepolia でなければ切替要求 │
 │                                                   │
 │  認証はウォレット署名で行わない（Alpha）           │
 │    → ウォレットアドレスは「操作権限の証明」に使用  │
 │    → DAO 管理者 = adminAddress 一致チェック        │
 │    → EAS アテステーション作成時に Signer として使用│
+│                                                   │
+│  切断                                             │
+│    1. walletStore.disconnect()                     │
+│    2. ストアクリア + localStorage クリア           │
 └─────────────────────────────────────────────────┘
 ```
 
-### 9.2 メール認証とウォレットの関係
+> **Note**: Firebase Auth（メール/パスワード）は廃止済み。DAO プラットフォームではオンチェーン操作が中心であり、ウォレットアドレスがユーザーの唯一の識別子となる。
 
-- メール認証: ログイン状態の管理（セッション）
-- ウォレット接続: ブロックチェーン操作の権限（EAS アテステーション作成・失効）
-- **アカウントリンクは Alpha では行わない** — 別々に管理
-- 保護ルート（`/my-dao/*`, `/dashboard`）はメール認証が必須
-- ブロックチェーン操作（DAO 作成、ドキュメント登録）はウォレット接続も必須
+### 9.2 セッション管理
 
-### 9.3 セッション管理
+| 項目               | 仕様                                                                   |
+| ------------------ | ---------------------------------------------------------------------- |
+| 認証状態           | `walletStore.address !== null` で判定                                  |
+| 永続化             | Zustand persist（localStorage `wallet-storage`、address/chainId のみ） |
+| ログアウト         | `walletStore.disconnect()` → ストアクリア + localStorage クリア        |
+| ウォレット変更検知 | `window.ethereum.on('accountsChanged')` → walletStore 更新             |
+| チェーン変更検知   | `window.ethereum.on('chainChanged')` → ページリロード                  |
 
-| 項目               | 仕様                                                            |
-| ------------------ | --------------------------------------------------------------- |
-| トークン           | Firebase ID Token（JWT、1時間有効）                             |
-| リフレッシュ       | Firebase SDK 自動リフレッシュ（`onIdTokenChanged`）             |
-| 永続化             | Firebase Auth の `browserLocalPersistence`                      |
-| ログアウト         | Firebase signOut + Zustand 全ストア reset + localStorage クリア |
-| ウォレット変更検知 | `window.ethereum.on('accountsChanged')` → walletStore 更新      |
-| チェーン変更検知   | `window.ethereum.on('chainChanged')` → ページリロード           |
-
-### 9.4 認証ガード
+### 9.3 認証ガード
 
 ```typescript
 // features/auth/components/AuthGuard.tsx
 // (auth) Route Group の layout.tsx で使用
 
 function AuthGuard({ children }: { children: ReactNode }) {
-  const { user, isLoading } = useAuthStore();
-  const router = useRouter();
+  const address = useWalletStore((s) => s.address);
+  const setupListeners = useWalletStore((s) => s.setupListeners);
 
-  if (isLoading) return <LoadingSpinner />;
-  if (!user) {
-    router.replace('/login?redirect=' + pathname);
-    return null;
+  useEffect(() => {
+    const cleanup = setupListeners();
+    return cleanup;
+  }, [setupListeners]);
+
+  if (!address) {
+    return (
+      <div>
+        <h2>ウォレットを接続してください</h2>
+        <p>この機能を利用するには MetaMask ウォレットの接続が必要です</p>
+        <WalletConnectButton />
+      </div>
+    );
   }
   return <>{children}</>;
 }
 ```
 
-### 9.5 ウォレット所有権検証
+### 9.4 ウォレット所有権検証
 
-Firebase Auth トークンにはウォレット情報が含まれないため、サーバーサイドで「リクエスト送信者がそのウォレットを本当に所有しているか」を検証する仕組みが必要である。
+サーバーサイドで「リクエスト送信者がそのウォレットを本当に所有しているか」を検証する仕組みが必要である。
 
 **問題**: ウォレットアドレスをリクエストボディで自己申告するだけでは偽装可能。特に `PUT /api/daos/[id]`（DAO 編集・非活性化）で adminAddress 一致チェックが機能しない。
 
@@ -1400,12 +1375,12 @@ async function signVerification(address: string): Promise<WalletVerification> {
 
 **適用範囲:**
 
-| 操作                  | 検証方式           | 理由                                                           |
-| --------------------- | ------------------ | -------------------------------------------------------------- |
-| `POST /api/daos`      | EAS attester 検証  | アテステーション作成者 = リクエスト送信者                      |
-| `PUT /api/daos/[id]`  | EIP-191 署名検証   | adminAddress の所有権確認                                      |
-| `POST /api/documents` | EAS attester 検証  | アテステーション作成者 = リクエスト送信者                      |
-| `POST /api/upload`    | Firebase Auth のみ | ウォレット不要（ファイルアップロードは認証済みユーザーなら可） |
+| 操作                  | 検証方式          | 理由                                               |
+| --------------------- | ----------------- | -------------------------------------------------- |
+| `POST /api/daos`      | EAS attester 検証 | アテステーション作成者 = リクエスト送信者          |
+| `PUT /api/daos/[id]`  | EIP-191 署名検証  | adminAddress の所有権確認                          |
+| `POST /api/documents` | EAS attester 検証 | アテステーション作成者 = リクエスト送信者          |
+| `POST /api/upload`    | 認証不要（Alpha） | ファイルアップロードは誰でも可（Alpha 版の簡素化） |
 
 ---
 
@@ -1482,17 +1457,17 @@ DAO 作成 / ドキュメント登録のトランザクションフロー:
 | エンドポイント        | メソッド | 認証          | 追加チェック                                                                                        |
 | --------------------- | -------- | ------------- | --------------------------------------------------------------------------------------------------- |
 | `/api/daos`           | GET      | 不要          | クエリパラメータ: `search`, `status`, `cursor`, `limit`                                             |
-| `/api/daos`           | POST     | Firebase Auth | EAS attester 検証（§9.5）                                                                           |
+| `/api/daos`           | POST     | 不要（Alpha） | EAS attester 検証（§9.4）                                                                           |
 | `/api/daos/[id]`      | GET      | 不要          | UID 指定の単一リソース取得                                                                          |
-| `/api/daos/[id]`      | PUT      | Firebase Auth | EIP-191 署名によるウォレット所有権検証（§9.5）+ adminAddress 一致。非活性化 = status 変更もこの API |
+| `/api/daos/[id]`      | PUT      | 不要（Alpha） | EIP-191 署名によるウォレット所有権検証（§9.4）+ adminAddress 一致。非活性化 = status 変更もこの API |
 | `/api/documents`      | GET      | 不要          | クエリパラメータ: `daoId`（必須）, `type`, `status`, `txHash`, `cursor`, `limit`                    |
-| `/api/documents`      | POST     | Firebase Auth | EAS attester 検証（§9.5）、DAO 管理者チェック                                                       |
+| `/api/documents`      | POST     | 不要（Alpha） | EAS attester 検証（§9.4）、DAO 管理者チェック                                                       |
 | `/api/documents/[id]` | GET      | 不要          | UID 指定の単一ドキュメント取得。バージョンチェーン情報を含む                                        |
-| `/api/documents/[id]` | PUT      | Firebase Auth | EIP-191 署名検証 + adminAddress 一致。失効（revoke）操作もこの API で処理                           |
-| `/api/upload`         | POST     | Firebase Auth | ファイルサイズ 10MB 上限、MIME タイプ検証（PDF/DOC/DOCX/TXT/JSON）                                  |
+| `/api/documents/[id]` | PUT      | 不要（Alpha） | EIP-191 署名検証 + adminAddress 一致。失効（revoke）操作もこの API で処理                           |
+| `/api/upload`         | POST     | 不要（Alpha） | ファイルサイズ 10MB 上限、MIME タイプ検証（PDF/DOC/DOCX/TXT/JSON）                                  |
 | `/api/eas-proxy`      | POST     | 不要          | レート制限のみ                                                                                      |
 | `/api/stats`          | GET      | 不要          | Homeページ用統計（DAO数、ドキュメント数）。サーバーサイドキャッシュ 60s                             |
-| `/api/activity`       | GET      | Firebase Auth | 最近のアテステーション一覧（作成・失効）。クエリパラメータ: `limit`（デフォルト20）                 |
+| `/api/activity`       | GET      | 不要（Alpha） | 最近のアテステーション一覧（作成・失効）。クエリパラメータ: `limit`（デフォルト20）                 |
 
 **API レスポンス共通型:**
 
@@ -1670,29 +1645,22 @@ function setCorsHeaders(response: NextResponse, origin: string): NextResponse {
 
 ```typescript
 // features/auth/stores/authStore.ts
-interface AuthState {
-  user: {
-    uid: string;
-    email: string;
-    emailVerified: boolean;
-  } | null;
-  isLoading: boolean;
-  isInitialized: boolean; // Firebase Auth の初期化完了フラグ
+// authStore は walletStore のヘルパーとして機能する。
+// 認証 = ウォレット接続（address !== null）
+
+// ヘルパーフック:
+function useIsWalletConnected(): boolean {
+  return useWalletStore((s) => s.address) !== null;
+}
+
+function useWalletAddress(): string | null {
+  return useWalletStore((s) => s.address);
 }
 
 // ロール定義:
 // Alpha では DAO ごとに管理者1名のみ（adminAddress 一致チェック）。
 // ロールシステムは Post-Alpha（FR-MEM-02）で導入: admin / editor / viewer。
 // v1 の "member" | "operator" | "superadmin" は廃止。
-
-interface AuthActions {
-  setUser: (user: AuthState['user']) => void;
-  setLoading: (loading: boolean) => void;
-  logout: () => void; // Firebase signOut + 全ストア reset
-  initialize: () => () => void; // onAuthStateChanged リスナー登録、クリーンアップ関数を返す
-}
-
-type AuthStore = AuthState & AuthActions;
 ```
 
 ```typescript
@@ -1837,7 +1805,7 @@ jobs:
 | EAS アテステーション（Document） | Sepolia ブロックチェーン | 〜200        | **移行不要**（v1 スキーマ UID で読み取り専用、§3.4 参照）          |
 | Firebase DAO メタデータ          | Firestore `daos/`        | 〜50         | **スキーマ検証 + 補完**（表示用メタデータの遅延移行）              |
 | IPFS ドキュメントファイル        | Pinata                   | 〜200        | **移行不要**（CID は不変、ゲートウェイ URL 統一のみ）              |
-| ユーザーアカウント               | localStorage             | 少数         | **再作成**（Firebase Auth で新規登録を案内）                       |
+| ユーザーアカウント               | localStorage             | 少数         | **移行不要**（v2 はウォレット接続のみ。アカウント作成不要）        |
 
 ### 14.2 EAS スキーマ共存戦略
 
@@ -1892,10 +1860,10 @@ function normalizeDAOMetadata(raw: Record<string, unknown>): FirebaseDAOData {
 
 ### 14.5 ユーザーアカウント移行
 
-v1 は localStorage ベースの独自認証（デモ認証含む）。v2 は Firebase Auth に完全移行。
+v1 は localStorage ベースの独自認証（デモ認証含む）。v2 はウォレット接続のみに移行。
 
-- **自動移行は行わない** — v1 のユーザーデータにパスワードハッシュ等がないため不可能
-- v2 初回アクセス時にサインアップを案内
+- **自動移行は不要** — v2 ではウォレット接続が認証手段であり、アカウント作成は不要
+- v2 初回アクセス時に MetaMask ウォレット接続を案内
 - ウォレットアドレスで既存 DAO の管理者であることは EAS データから自動的に紐付く
 
 ### 14.6 Document v2 スキーマデプロイ手順

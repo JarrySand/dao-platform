@@ -1,78 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, getDocs, collection } from 'firebase/firestore';
+import {
+  doc,
+  setDoc,
+  getDocs,
+  getCountFromServer,
+  query,
+  where,
+  orderBy,
+  collection,
+  type QueryConstraint,
+} from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase/client';
 import type { FirebaseDAOData } from '@/shared/lib/firebase/types';
+import { firestoreToDAO } from '@/shared/lib/firebase/converters';
 import { setCorsHeaders } from '@/shared/lib/cors';
-import { verifyAuth } from '@/shared/lib/api-client';
-import { getAllDAOs } from '@/shared/lib/eas/queries';
-import { decodeDAOData } from '@/shared/lib/eas/schema';
+import { checkRateLimit } from '@/shared/lib/rate-limit';
+import { triggerLazySync } from '@/shared/lib/sync/syncService';
+import { authenticateRequest, sanitizeErrorMessage, getClientIP } from '@/shared/lib/middleware';
+import { logger } from '@/shared/utils/logger';
 import type { ApiResponse, ApiErrorResponse } from '@/shared/types/api';
 import { HTTP_STATUS } from '@/shared/types/api';
 import { createDAOSchema } from '@/features/dao/types';
 import type { DAO } from '@/features/dao/types';
 
-function parseDAO(
-  attestation: { id: string; attester: string; time: number; decodedDataJson: string },
-  firebaseData?: FirebaseDAOData | null,
-): DAO {
-  const decoded = decodeDAOData(attestation.decodedDataJson);
-
-  return {
-    id: attestation.id,
-    name: firebaseData?.name || decoded.daoName,
-    description: firebaseData?.description || decoded.daoDescription,
-    location: firebaseData?.location || decoded.daoLocation,
-    memberCount: firebaseData?.memberCount ?? decoded.memberCount,
-    size: firebaseData?.size || decoded.daoSize || 'small',
-    status: firebaseData?.status || 'active',
-    logoUrl: firebaseData?.logoUrl || '',
-    website: firebaseData?.website || '',
-    contactPerson: firebaseData?.contactPerson || '',
-    contactEmail: firebaseData?.contactEmail || '',
-    adminAddress: firebaseData?.adminAddress || attestation.attester,
-    attestationUID: attestation.id,
-    trustScore: 0,
-    foundingDate: attestation.time,
-    createdAt: firebaseData?.createdAt || new Date(attestation.time * 1000).toISOString(),
-    updatedAt: firebaseData?.updatedAt || new Date(attestation.time * 1000).toISOString(),
-  };
-}
-
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const ip = getClientIP(request);
+    if (!checkRateLimit(ip, 30, 60_000)) {
+      const body: ApiErrorResponse = { success: false, error: 'Too many requests' };
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.TOO_MANY_REQUESTS }),
+        request,
+      );
+    }
+
+    triggerLazySync();
+
     const { searchParams } = request.nextUrl;
     const search = searchParams.get('search')?.toLowerCase() || '';
     const status = searchParams.get('status') as 'active' | 'inactive' | 'pending' | null;
     const cursor = searchParams.get('cursor');
     const limit = Math.min(Number(searchParams.get('limit')) || 20, 100);
 
-    const attestations = await getAllDAOs(200);
+    // Build Firestore query with server-side filtering where possible
+    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
+    if (status) {
+      constraints.push(where('status', '==', status));
+    }
+    const q = query(collection(db, 'daos'), ...constraints);
+    const snapshot = await getDocs(q);
 
-    // Batch read Firestore metadata (best-effort)
-    const firebaseDataMap = new Map<string, FirebaseDAOData>();
-    try {
-      const daoCollectionRef = collection(db, 'daos');
-      const snapshot = await getDocs(daoCollectionRef);
-      for (const docSnap of snapshot.docs) {
-        firebaseDataMap.set(docSnap.id, docSnap.data() as FirebaseDAOData);
-      }
-    } catch {
-      // Firestore read is best-effort; continue with EAS-only data
+    let daos: DAO[] = [];
+    for (const docSnap of snapshot.docs) {
+      const fb = docSnap.data() as FirebaseDAOData;
+      daos.push(firestoreToDAO(docSnap.id, fb));
     }
 
-    let daos = attestations.map((att) => parseDAO(att, firebaseDataMap.get(att.id)));
-
-    // Apply search filter
+    // Text search must be done client-side (Firestore lacks full-text search)
     if (search) {
       daos = daos.filter(
         (dao) =>
           dao.name.toLowerCase().includes(search) || dao.description.toLowerCase().includes(search),
       );
-    }
-
-    // Apply status filter
-    if (status) {
-      daos = daos.filter((dao) => dao.status === status);
     }
 
     // Cursor-based pagination
@@ -90,25 +79,58 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ? (paginatedDAOs[paginatedDAOs.length - 1]?.id ?? null)
         : null;
 
-    const body: ApiResponse<{ items: DAO[]; nextCursor: string | null }> = {
+    // Enrich each DAO with documentCount
+    const docsCol = collection(db, 'documents');
+    const enriched = await Promise.all(
+      paginatedDAOs.map(async (dao) => {
+        const countSnap = await getCountFromServer(query(docsCol, where('daoId', '==', dao.id)));
+        return { ...dao, documentCount: countSnap.data().count };
+      }),
+    );
+
+    const hasMore = startIndex + limit < daos.length;
+    const body: ApiResponse<{ data: DAO[]; nextCursor: string | null; hasMore: boolean }> = {
       success: true,
-      data: { items: paginatedDAOs, nextCursor },
+      data: { data: enriched, nextCursor, hasMore },
     };
 
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }));
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('daos_get_failed', {
+      route: '/api/daos',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const token = verifyAuth(request);
-    if (!token) {
-      const body: ApiErrorResponse = { success: false, error: 'Unauthorized' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }));
+    // Rate limit write operations
+    const ip = getClientIP(request);
+    if (!checkRateLimit(ip, 10, 60_000)) {
+      const body: ApiErrorResponse = { success: false, error: 'Too many requests' };
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.TOO_MANY_REQUESTS }),
+        request,
+      );
+    }
+
+    // Authenticate wallet
+    const auth = authenticateRequest(request);
+    if (!auth) {
+      const body: ApiErrorResponse = {
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      };
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }), request);
     }
 
     const rawBody: unknown = await request.json();
@@ -127,7 +149,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         code: 'VALIDATION_ERROR',
         details,
       };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNPROCESSABLE_ENTITY }));
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.UNPROCESSABLE_ENTITY }),
+        request,
+      );
     }
 
     const {
@@ -142,8 +167,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       contactEmail,
     } = parsed.data;
 
-    // Generate a temporary ID; the real attestation UID comes from the client after on-chain tx
-    const tempId = `pending_${Date.now()}`;
+    // Accept attestationUID and adminAddress from client (after EAS attestation)
+    const raw = rawBody as Record<string, unknown>;
+    const attestationUID =
+      typeof raw.attestationUID === 'string' && /^0x[a-fA-F0-9]{64}$/.test(raw.attestationUID)
+        ? raw.attestationUID
+        : null;
+    const adminAddress = auth.address;
+
+    const id = attestationUID || `pending_${Date.now()}`;
     const now = new Date().toISOString();
 
     const firebaseData: FirebaseDAOData = {
@@ -152,48 +184,58 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       location,
       memberCount,
       size,
-      status: 'pending',
+      status: attestationUID ? 'active' : 'pending',
       logoUrl: logoUrl || '',
       website: website || '',
       contactPerson: contactPerson || '',
       contactEmail: contactEmail || '',
-      adminAddress: '',
-      attestationUID: tempId,
+      adminAddress,
+      attestationUID: id,
       createdAt: now,
       updatedAt: now,
+      source: attestationUID ? 'eas' : 'pending',
     };
 
-    await setDoc(doc(db, 'daos', tempId), firebaseData);
+    await setDoc(doc(db, 'daos', id), firebaseData);
 
     const dao: DAO = {
-      id: tempId,
+      id,
       name,
       description,
       location,
       memberCount,
       size,
-      status: 'pending',
+      status: attestationUID ? 'active' : 'pending',
       logoUrl: logoUrl || '',
       website: website || '',
       contactPerson: contactPerson || '',
       contactEmail: contactEmail || '',
-      adminAddress: '',
-      attestationUID: tempId,
+      adminAddress,
+      attestationUID: id,
       trustScore: 0,
       foundingDate: Math.floor(Date.now() / 1000),
       createdAt: now,
       updatedAt: now,
     };
 
+    logger.info('dao_created', { route: '/api/daos', daoId: id, by: auth.address });
     const body: ApiResponse<DAO> = { success: true, data: dao };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.CREATED }));
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.CREATED }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('daos_post_failed', {
+      route: '/api/daos',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
-export async function OPTIONS(): Promise<NextResponse> {
-  return setCorsHeaders(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return setCorsHeaders(new NextResponse(null, { status: 204 }), request);
 }

@@ -19,14 +19,7 @@ export const TableHeader = forwardRef<
   HTMLTableSectionElement,
   HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead
-    ref={ref}
-    className={cn(
-      'border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50',
-      className,
-    )}
-    {...props}
-  />
+  <thead ref={ref} className={cn('border-b border-skin-border', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -43,8 +36,8 @@ export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTable
     <tr
       ref={ref}
       className={cn(
-        'border-b border-gray-200 transition-colors',
-        'hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/50',
+        'border-b border-skin-border transition-colors',
+        'hover:bg-[var(--color-bg-hover)]',
         className,
       )}
       {...props}
@@ -59,7 +52,7 @@ export const TableHead = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLT
       ref={ref}
       className={cn(
         'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider',
-        'text-gray-500 dark:text-gray-400',
+        'text-[var(--color-text-secondary)]',
         className,
       )}
       {...props}
@@ -72,7 +65,7 @@ export const TableCell = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLT
   ({ className, ...props }, ref) => (
     <td
       ref={ref}
-      className={cn('px-4 py-3 text-gray-700 dark:text-gray-300', className)}
+      className={cn('px-4 py-3 text-[var(--color-text-secondary)]', className)}
       {...props}
     />
   ),

@@ -17,7 +17,7 @@ export function EmptyState({ icon, message, actionLabel, onAction, className }: 
     >
       {icon ?? (
         <svg
-          className="h-12 w-12 text-gray-300 dark:text-gray-600"
+          className="h-12 w-12 text-[var(--color-text-tertiary)]"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -32,7 +32,7 @@ export function EmptyState({ icon, message, actionLabel, onAction, className }: 
           />
         </svg>
       )}
-      <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
+      <p className="text-sm text-[var(--color-text-secondary)]">{message}</p>
       {actionLabel && onAction && (
         <Button variant="outline" size="sm" onClick={onAction}>
           {actionLabel}

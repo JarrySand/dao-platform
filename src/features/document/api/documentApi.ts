@@ -1,47 +1,46 @@
+import { apiClient, createWalletAuthHeader } from '@/shared/lib/api-client';
 import type { ApiResult } from '@/shared/types/api';
 import type { Document, DocumentFilters } from '../types';
+import { useWalletStore } from '@/features/wallet/stores/walletStore';
 
-export async function fetchDocuments(filters: DocumentFilters): Promise<ApiResult<Document[]>> {
+interface PaginatedDocuments {
+  data: Document[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export async function fetchDocuments(
+  filters: DocumentFilters,
+): Promise<ApiResult<PaginatedDocuments>> {
   const params = new URLSearchParams();
   params.set('daoId', filters.daoId);
   if (filters.type) params.set('type', filters.type);
   if (filters.status) params.set('status', filters.status);
   if (filters.txHash) params.set('txHash', filters.txHash);
 
-  const response = await fetch(`/api/documents?${params}`);
-  if (!response.ok) {
-    return { success: false, error: `Failed to fetch documents: ${response.status}` };
-  }
-  return response.json();
+  return apiClient.get<ApiResult<PaginatedDocuments>>(`/api/documents?${params}`);
 }
 
-export async function fetchDocument(id: string): Promise<ApiResult<Document>> {
-  const response = await fetch(`/api/documents/${encodeURIComponent(id)}`);
-  if (!response.ok) {
-    return { success: false, error: `Failed to fetch document: ${response.status}` };
-  }
-  return response.json();
+interface DocumentDetail {
+  document: Document;
+  versionChain: Document[];
 }
 
-export async function registerDocument(data: FormData): Promise<ApiResult<Document>> {
-  const response = await fetch('/api/documents', {
-    method: 'POST',
-    body: data,
-  });
-  if (!response.ok) {
-    return { success: false, error: `Failed to register document: ${response.status}` };
-  }
-  return response.json();
+export async function fetchDocument(id: string): Promise<ApiResult<DocumentDetail>> {
+  return apiClient.get<ApiResult<DocumentDetail>>(`/api/documents/${encodeURIComponent(id)}`);
 }
 
 export async function revokeDocument(id: string): Promise<ApiResult<{ txHash: string }>> {
-  const response = await fetch(`/api/documents/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'revoke' }),
-  });
-  if (!response.ok) {
-    return { success: false, error: `Failed to revoke document: ${response.status}` };
-  }
-  return response.json();
+  const address = useWalletStore.getState().address;
+  if (!address) throw new Error('ウォレットが接続されていません');
+  const authorization = await createWalletAuthHeader(address);
+  return apiClient.put<ApiResult<{ txHash: string }>>(
+    `/api/documents/${encodeURIComponent(id)}`,
+    {
+      action: 'revoke',
+    },
+    {
+      headers: { Authorization: authorization },
+    },
+  );
 }

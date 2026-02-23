@@ -1,6 +1,7 @@
-import { apiClient } from '@/shared/lib/api-client';
+import { apiClient, createWalletAuthHeader } from '@/shared/lib/api-client';
 import type { ApiResult, PaginatedResponse } from '@/shared/types';
 import type { DAO, CreateDAOFormData, UpdateDAOFormData } from '../types';
+import { useWalletStore } from '@/features/wallet/stores/walletStore';
 
 export interface FetchDAOsParams {
   search?: string;
@@ -20,13 +21,11 @@ export async function fetchDAOs(
 
   const qs = searchParams.toString();
   const url = qs ? `/api/daos?${qs}` : '/api/daos';
-  return apiClient.get<ApiResult<PaginatedResponse<DAO>>>(url, {
-    skipAuth: true,
-  });
+  return apiClient.get<ApiResult<PaginatedResponse<DAO>>>(url);
 }
 
 export async function fetchDAO(id: string): Promise<ApiResult<DAO>> {
-  return apiClient.get<ApiResult<DAO>>(`/api/daos/${id}`, { skipAuth: true });
+  return apiClient.get<ApiResult<DAO>>(`/api/daos/${id}`);
 }
 
 export async function createDAO(data: CreateDAOFormData): Promise<ApiResult<DAO>> {
@@ -34,7 +33,12 @@ export async function createDAO(data: CreateDAOFormData): Promise<ApiResult<DAO>
 }
 
 export async function updateDAO(id: string, data: UpdateDAOFormData): Promise<ApiResult<DAO>> {
-  return apiClient.put<ApiResult<DAO>>(`/api/daos/${id}`, data);
+  const address = useWalletStore.getState().address;
+  if (!address) throw new Error('ウォレットが接続されていません');
+  const authorization = await createWalletAuthHeader(address);
+  return apiClient.put<ApiResult<DAO>>(`/api/daos/${id}`, data, {
+    headers: { Authorization: authorization },
+  });
 }
 
 export async function deactivateDAO(id: string): Promise<ApiResult<DAO>> {

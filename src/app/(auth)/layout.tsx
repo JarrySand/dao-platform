@@ -1,5 +1,21 @@
-// This layout will be used for authenticated pages.
-// AuthGuard will be added in Phase 2 when the auth feature is complete.
+'use client';
+
+import { Sidebar, MobileHeader, ContentHeader } from '@/shared/components/layout/Sidebar';
+import { Footer } from '@/shared/components/layout';
+import { AuthGuard } from '@/features/auth';
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <main className="min-h-screen">{children}</main>;
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex flex-1 flex-col">
+        <MobileHeader />
+        <ContentHeader />
+        <main className="flex-1">
+          <AuthGuard>{children}</AuthGuard>
+        </main>
+        <Footer />
+      </div>
+    </div>
+  );
 }

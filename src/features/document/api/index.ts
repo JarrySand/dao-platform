@@ -1,1 +1,1 @@
-export { fetchDocuments, fetchDocument, registerDocument, revokeDocument } from './documentApi';
+export { fetchDocuments, fetchDocument, revokeDocument } from './documentApi';

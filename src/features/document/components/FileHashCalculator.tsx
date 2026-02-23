@@ -58,25 +58,23 @@ export function FileHashCalculator({ file, onHashCalculated }: FileHashCalculato
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">SHA-256 ハッシュ</p>
+      <p className="text-sm font-medium text-skin-heading">SHA-256 ハッシュ</p>
 
       {isCalculating && (
         <div className="space-y-1">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-bg-hover)]">
             <div
-              className={cn(
-                'h-full rounded-full bg-primary-600 transition-all duration-300 dark:bg-primary-500',
-              )}
+              className={cn('h-full rounded-full bg-skin-primary transition-all duration-300')}
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">ハッシュ計算中...</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">ハッシュ計算中...</p>
         </div>
       )}
 
       {hash && !isCalculating && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
-          <code className="break-all text-xs text-gray-700 dark:text-gray-300">{hash}</code>
+        <div className="rounded-xl border border-skin-border bg-[var(--color-bg-hover)] p-3">
+          <code className="break-all text-xs text-skin-heading">{hash}</code>
         </div>
       )}
     </div>

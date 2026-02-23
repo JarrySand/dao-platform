@@ -17,6 +17,3 @@ export { useDeactivateDAO } from './hooks/useDeactivateDAO';
 // Components
 export { DAOCard, DAOList, DAODetail, DAOStats } from './components';
 export type { DAOCardProps, DAODetailProps } from './components';
-
-// Utils
-export { mergeDAOData, calculateTrustScore } from './utils';

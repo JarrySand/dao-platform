@@ -13,17 +13,33 @@ function shouldLog(level: LogLevel): boolean {
   return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel];
 }
 
+interface LogContext {
+  route?: string;
+  method?: string;
+  ip?: string;
+  error?: string;
+  stack?: string;
+  [key: string]: unknown;
+}
+
+function formatLog(level: string, message: string, context?: LogContext): string {
+  const timestamp = new Date().toISOString();
+  const base = `${timestamp} [${level.toUpperCase()}] ${message}`;
+  if (!context || Object.keys(context).length === 0) return base;
+  return `${base} ${JSON.stringify(context)}`;
+}
+
 export const logger = {
-  debug: (message: string, ...args: unknown[]) => {
-    if (shouldLog('debug')) console.debug(`[DEBUG] ${message}`, ...args);
+  debug: (message: string, context?: LogContext) => {
+    if (shouldLog('debug')) console.debug(formatLog('debug', message, context));
   },
-  info: (message: string, ...args: unknown[]) => {
-    if (shouldLog('info')) console.info(`[INFO] ${message}`, ...args);
+  info: (message: string, context?: LogContext) => {
+    if (shouldLog('info')) console.info(formatLog('info', message, context));
   },
-  warn: (message: string, ...args: unknown[]) => {
-    if (shouldLog('warn')) console.warn(`[WARN] ${message}`, ...args);
+  warn: (message: string, context?: LogContext) => {
+    if (shouldLog('warn')) console.warn(formatLog('warn', message, context));
   },
-  error: (message: string, ...args: unknown[]) => {
-    if (shouldLog('error')) console.error(`[ERROR] ${message}`, ...args);
+  error: (message: string, context?: LogContext) => {
+    if (shouldLog('error')) console.error(formatLog('error', message, context));
   },
 };

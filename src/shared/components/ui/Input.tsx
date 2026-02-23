@@ -18,16 +18,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label
-            htmlFor={inputId}
-            className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
+          <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium text-skin-heading">
             {label}
           </label>
         )}
         <div className="relative">
           {leftIcon && (
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500">
+            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--color-text-tertiary)]">
               {leftIcon}
             </span>
           )}
@@ -39,13 +36,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined
             }
             className={cn(
-              'block w-full rounded-lg border px-3 py-2 text-sm transition-colors',
-              'bg-white text-gray-900 placeholder:text-gray-400',
-              'dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500',
+              'block w-full rounded-xl border px-3 py-2 text-sm transition-colors',
+              'bg-[var(--color-bg-tertiary)] text-skin-heading placeholder:text-[var(--color-text-tertiary)]',
               'focus:outline-none focus:ring-2 focus:ring-offset-0',
               error
-                ? 'border-red-500 focus:ring-red-500 dark:border-red-400'
-                : 'border-gray-300 focus:ring-primary-500 dark:border-gray-600',
+                ? 'border-[var(--color-danger)] focus:ring-[var(--color-danger)]'
+                : 'border-skin-border focus:ring-skin-primary',
               'disabled:cursor-not-allowed disabled:opacity-50',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
@@ -54,7 +50,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 dark:text-gray-500">
+            <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-[var(--color-text-tertiary)]">
               {rightIcon}
             </span>
           )}
@@ -62,14 +58,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {error && (
           <p
             id={`${inputId}-error`}
-            className="mt-1.5 text-sm text-red-600 dark:text-red-400"
+            className="mt-1.5 text-sm text-[var(--color-danger)]"
             role="alert"
           >
             {error}
           </p>
         )}
         {!error && helperText && (
-          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">
+          <p id={`${inputId}-helper`} className="mt-1.5 text-sm text-[var(--color-text-secondary)]">
             {helperText}
           </p>
         )}

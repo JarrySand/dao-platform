@@ -55,7 +55,7 @@ function WalletConnectButtonInner() {
       <Button variant="primary" size="sm" onClick={connect}>
         ウォレット接続
       </Button>
-      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-1 text-xs text-[var(--color-danger)]">{error}</p>}
     </div>
   );
 }

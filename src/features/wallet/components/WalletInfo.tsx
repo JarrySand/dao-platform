@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useWallet } from '@/features/wallet/hooks/useWallet';
+import { getAddressExplorerUrl } from '@/shared/utils/explorer';
 
 export function WalletInfo() {
   const { address, chainId } = useWallet();
@@ -19,28 +20,36 @@ export function WalletInfo() {
   const chainName = chainId === '0xaa36a7' ? 'Sepolia Testnet' : `Chain ${chainId}`;
 
   return (
-    <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-      <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+    <div className="rounded-lg border border-skin-border p-4">
+      <h3 className="mb-2 text-sm font-medium text-[var(--color-text-secondary)]">
         接続中のウォレット
       </h3>
       <div className="space-y-2">
         <div>
-          <span className="text-xs text-gray-500 dark:text-gray-400">アドレス</span>
-          <button
-            type="button"
-            onClick={copyAddress}
-            className="block w-full truncate rounded bg-gray-50 px-2 py-1 text-left font-mono text-sm text-gray-900 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
-            title="クリックしてコピー"
-          >
-            {address}
-            {copied && (
-              <span className="ml-2 text-xs text-green-600 dark:text-green-400">コピー済み</span>
-            )}
-          </button>
+          <span className="text-xs text-[var(--color-text-secondary)]">アドレス</span>
+          <div className="flex items-center gap-1">
+            <a
+              href={getAddressExplorerUrl(address)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block flex-1 truncate rounded bg-[var(--color-bg-hover)] px-2 py-1 text-left font-mono text-sm text-skin-heading hover:underline"
+              title={address}
+            >
+              {address}
+            </a>
+            <button
+              type="button"
+              onClick={copyAddress}
+              className="shrink-0 rounded px-1.5 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]"
+              title="コピー"
+            >
+              {copied ? 'コピー済み' : 'コピー'}
+            </button>
+          </div>
         </div>
         <div>
-          <span className="text-xs text-gray-500 dark:text-gray-400">ネットワーク</span>
-          <p className="text-sm text-gray-900 dark:text-gray-100">{chainName}</p>
+          <span className="text-xs text-[var(--color-text-secondary)]">ネットワーク</span>
+          <p className="text-sm text-skin-heading">{chainName}</p>
         </div>
       </div>
     </div>

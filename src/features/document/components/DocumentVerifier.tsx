@@ -3,7 +3,8 @@
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { calculateFileHash } from '@/shared/utils/fileHash';
-import { formatDate, shortenAddress } from '@/shared/utils/format';
+import { formatDate } from '@/shared/utils/format';
+import { ExplorerLink } from '@/shared/components/ExplorerLink';
 import { FileUploader } from './FileUploader';
 import { Card, CardContent, CardHeader, CardTitle, Alert, Badge } from '@/shared/components/ui';
 import { LoadingSpinner } from '@/shared/components/feedback';
@@ -11,22 +12,30 @@ import type { Document, DocumentType } from '../types';
 
 const typeLabels: Record<DocumentType, string> = {
   articles: '定款',
-  meeting: '議事録',
-  token: 'トークン',
-  operation: '運営',
-  voting: '投票',
-  other: 'その他',
+  assembly_rules: 'DAO総会規程',
+  operation_rules: '運営規程',
+  token_rules: 'トークン規程',
+  custom_rules: 'カスタム規程',
+  proposal: '投票議題',
+  minutes: '議事録',
 };
 
 async function searchDocumentByHash(hash: string): Promise<Document | null> {
   const formattedHash = hash.startsWith('0x') ? hash : `0x${hash}`;
   const res = await fetch(`/api/documents?hash=${encodeURIComponent(formattedHash)}`);
   if (!res.ok) return null;
-  const data = await res.json();
-  if (data.success && data.data && data.data.length > 0) {
-    return data.data[0] as Document;
+  const json = await res.json();
+  if (json.success && json.data?.data?.length > 0) {
+    return json.data.data[0] as Document;
   }
   return null;
+}
+
+async function fetchDAOName(daoId: string): Promise<string | null> {
+  const res = await fetch(`/api/daos/${encodeURIComponent(daoId)}`);
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.success ? (json.data?.name ?? null) : null;
 }
 
 export function DocumentVerifier() {
@@ -42,6 +51,13 @@ export function DocumentVerifier() {
     queryFn: () => searchDocumentByHash(fileHash!),
     enabled: !!fileHash,
     staleTime: 30_000,
+  });
+
+  const { data: daoName } = useQuery({
+    queryKey: ['dao-verify', matchedDocument?.daoId],
+    queryFn: () => fetchDAOName(matchedDocument!.daoId),
+    enabled: !!matchedDocument?.daoId,
+    staleTime: 60_000,
   });
 
   const handleFileSelect = useCallback(async (file: File) => {
@@ -63,7 +79,7 @@ export function DocumentVerifier() {
         <CardTitle>ドキュメント検証</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-[var(--color-text-secondary)]">
           ファイルを選択してブロックチェーン上の登録済みドキュメントと照合します。
         </p>
 
@@ -72,7 +88,7 @@ export function DocumentVerifier() {
         {isProcessing && (
           <div className="flex items-center justify-center gap-2 py-4">
             <LoadingSpinner size="sm" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-[var(--color-text-secondary)]">
               {isHashing ? 'ハッシュ計算中...' : '検索中...'}
             </span>
           </div>
@@ -84,27 +100,40 @@ export function DocumentVerifier() {
               <p className="font-medium">一致するドキュメントが見つかりました</p>
               <div className="space-y-1 text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-600 dark:text-gray-400">タイトル:</span>
+                  <span className="text-[var(--color-text-secondary)]">タイトル:</span>
                   <span className="font-medium">{matchedDocument.title}</span>
                 </div>
+                {daoName && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--color-text-secondary)]">DAO:</span>
+                    <span className="font-medium">{daoName}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-600 dark:text-gray-400">種別:</span>
+                  <span className="text-[var(--color-text-secondary)]">種別:</span>
                   <Badge variant="default" size="sm">
                     {typeLabels[matchedDocument.documentType]}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-600 dark:text-gray-400">登録者:</span>
-                  <span className="font-mono text-xs">
-                    {shortenAddress(matchedDocument.attester)}
-                  </span>
+                  <span className="text-[var(--color-text-secondary)]">ステータス:</span>
+                  <Badge
+                    variant={matchedDocument.status === 'active' ? 'success' : 'error'}
+                    size="sm"
+                  >
+                    {matchedDocument.status === 'active' ? '有効' : '失効'}
+                  </Badge>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-600 dark:text-gray-400">登録日:</span>
+                  <span className="text-[var(--color-text-secondary)]">登録者:</span>
+                  <ExplorerLink type="address" value={matchedDocument.attester} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--color-text-secondary)]">登録日:</span>
                   <span>{formatDate(matchedDocument.createdAt)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-600 dark:text-gray-400">IPFS CID:</span>
+                  <span className="text-[var(--color-text-secondary)]">IPFS CID:</span>
                   <span className="font-mono text-xs">{matchedDocument.ipfsCid}</span>
                 </div>
               </div>

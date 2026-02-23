@@ -6,7 +6,7 @@
 - **npm** 10+
 - **MetaMask** browser extension
 - **Sepolia testnet ETH** (from a faucet)
-- **Firebase project** with Authentication and Firestore enabled
+- **Firebase project** with Firestore enabled (Authentication is not required)
 - **Pinata account** for IPFS storage
 
 ## Setup
@@ -38,7 +38,7 @@ Required variables:
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID         |
 | `NEXT_PUBLIC_FIREBASE_APP_ID`              | Firebase app ID                      |
 | `NEXT_PUBLIC_PINATA_JWT`                   | Pinata JWT for IPFS uploads          |
-| `NEXT_PUBLIC_DOCUMENT_V2_SCHEMA_UID`       | EAS Document v2 schema UID (Sepolia) |
+| `NEXT_PUBLIC_DOCUMENT_V3_SCHEMA_UID`       | EAS Document v3 schema UID (Sepolia) |
 | `NEXT_PUBLIC_SEPOLIA_RPC_URL`              | Sepolia RPC endpoint                 |
 
 ### 3. MetaMask setup
@@ -112,6 +112,6 @@ This project follows **Feature-Sliced Design (FSD)**:
 - Next.js 15 + React 19
 - TypeScript strict mode
 - Tailwind CSS 4 (dark mode support)
-- Firebase Auth + Firestore
+- Firebase Firestore (cache only)
 - Ethereum Attestation Service (EAS)
 - IPFS via Pinata

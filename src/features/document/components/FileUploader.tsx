@@ -108,15 +108,14 @@ export function FileUploader({
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors',
-          'border-gray-300 bg-gray-50 hover:border-primary-400 hover:bg-gray-100',
-          'dark:border-gray-600 dark:bg-gray-800 dark:hover:border-primary-500 dark:hover:bg-gray-700',
+          'flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 transition-colors',
+          'border-skin-border bg-[var(--color-bg-hover)] hover:border-primary-400 hover:bg-[var(--color-bg-hover)]',
           dragOver &&
             'border-primary-500 bg-primary-50 dark:border-primary-400 dark:bg-primary-950',
         )}
       >
         <svg
-          className="mb-3 h-10 w-10 text-gray-400 dark:text-gray-500"
+          className="mb-3 h-10 w-10 text-[var(--color-text-tertiary)]"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -130,10 +129,10 @@ export function FileUploader({
             d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
           />
         </svg>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-[var(--color-text-secondary)]">
           ファイルをドラッグ＆ドロップ、またはクリックして選択
         </p>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
           最大 {formatFileSize(maxSize)}
         </p>
         <input
@@ -146,18 +145,16 @@ export function FileUploader({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+        <p className="text-sm text-[var(--color-danger)]" role="alert">
           {error}
         </p>
       )}
 
       {selectedFile && (
-        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+        <div className="flex items-center justify-between rounded-xl border border-skin-border bg-[var(--color-bg-secondary)] p-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-              {selectedFile.name}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="truncate text-sm font-medium text-skin-heading">{selectedFile.name}</p>
+            <p className="text-xs text-[var(--color-text-secondary)]">
               {formatFileSize(selectedFile.size)}
             </p>
           </div>

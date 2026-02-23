@@ -1,83 +1,61 @@
-import { NextResponse } from 'next/server';
-import { CHAIN_CONFIG } from '@/config/chains';
-import { executeEASQuery } from '@/shared/lib/eas/graphql';
+import { NextRequest, NextResponse } from 'next/server';
+import { getCountFromServer, query, collection } from 'firebase/firestore';
+import { db } from '@/shared/lib/firebase/client';
 import { setCorsHeaders } from '@/shared/lib/cors';
+import { checkRateLimit } from '@/shared/lib/rate-limit';
+import { triggerLazySync } from '@/shared/lib/sync/syncService';
+import { sanitizeErrorMessage, getClientIP } from '@/shared/lib/middleware';
+import { logger } from '@/shared/utils/logger';
 import type { ApiResponse, ApiErrorResponse } from '@/shared/types/api';
 import { HTTP_STATUS } from '@/shared/types/api';
 
-const schemas = CHAIN_CONFIG.sepolia.schemas;
-
 interface StatsData {
   daoCount: number;
-  documentV1Count: number;
-  documentV2Count: number;
   totalDocuments: number;
 }
 
-// Server-side cache
-let cachedStats: { data: StatsData; expiresAt: number } | null = null;
-const CACHE_TTL_MS = 60_000; // 60 seconds
-
-async function fetchStats(): Promise<StatsData> {
-  // Check cache first
-  if (cachedStats && cachedStats.expiresAt > Date.now()) {
-    return cachedStats.data;
-  }
-
-  const countQuery = `
-    query GetCounts($daoSchemaId: String!, $docV1SchemaId: String!, $docV2SchemaId: String!) {
-      daoCount: aggregateAttestation(
-        where: { schemaId: { equals: $daoSchemaId }, revoked: { equals: false } }
-      ) {
-        _count { id }
-      }
-      docV1Count: aggregateAttestation(
-        where: { schemaId: { equals: $docV1SchemaId }, revoked: { equals: false } }
-      ) {
-        _count { id }
-      }
-      docV2Count: aggregateAttestation(
-        where: { schemaId: { equals: $docV2SchemaId }, revoked: { equals: false } }
-      ) {
-        _count { id }
-      }
-    }
-  `;
-
-  const result = await executeEASQuery<{
-    daoCount: { _count: { id: number } };
-    docV1Count: { _count: { id: number } };
-    docV2Count: { _count: { id: number } };
-  }>(countQuery, {
-    daoSchemaId: schemas.dao.uid,
-    docV1SchemaId: schemas.documentV1.uid,
-    docV2SchemaId: schemas.documentV2.uid,
-  });
-
-  const stats: StatsData = {
-    daoCount: result.daoCount._count.id,
-    documentV1Count: result.docV1Count._count.id,
-    documentV2Count: result.docV2Count._count.id,
-    totalDocuments: result.docV1Count._count.id + result.docV2Count._count.id,
-  };
-
-  cachedStats = { data: stats, expiresAt: Date.now() + CACHE_TTL_MS };
-  return stats;
-}
-
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const stats = await fetchStats();
+    const ip = getClientIP(request);
+    if (!checkRateLimit(ip, 30, 60_000)) {
+      const body: ApiErrorResponse = { success: false, error: 'Too many requests' };
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.TOO_MANY_REQUESTS }),
+        request,
+      );
+    }
+
+    // Trigger lazy sync in background (fire-and-forget)
+    triggerLazySync();
+
+    // Use server-side counting to avoid downloading all documents
+    const [daoCount, totalDocCount] = await Promise.all([
+      getCountFromServer(query(collection(db, 'daos'))),
+      getCountFromServer(query(collection(db, 'documents'))),
+    ]);
+
+    const stats: StatsData = {
+      daoCount: daoCount.data().count,
+      totalDocuments: totalDocCount.data().count,
+    };
 
     const body: ApiResponse<StatsData> = { success: true, data: stats };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }));
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch stats';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('stats_get_failed', {
+      route: '/api/stats',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
-export async function OPTIONS(): Promise<NextResponse> {
-  return setCorsHeaders(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return setCorsHeaders(new NextResponse(null, { status: 204 }), request);
 }

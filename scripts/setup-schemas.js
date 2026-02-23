@@ -22,6 +22,13 @@ const SCHEMAS = {
       'bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, string version, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId',
     resolverAddress: '0x0000000000000000000000000000000000000000',
     revocable: true,
+    note: 'Read-only. Already deployed as 0xe902a5f06139377b16d7960b69c3469c88090224f2ff694cd7c2a86f86182e99',
+  },
+  documentV3: {
+    schema:
+      'bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId',
+    resolverAddress: '0x0000000000000000000000000000000000000000',
+    revocable: true,
   },
 };
 
@@ -88,5 +95,5 @@ async function deploySchema(schemaName) {
   }
 }
 
-const schemaName = process.argv[2] || 'documentV2';
+const schemaName = process.argv[2] || 'documentV3';
 deploySchema(schemaName);

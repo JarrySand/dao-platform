@@ -11,7 +11,7 @@ export function useRevokeDocument() {
     mutationFn: async (attestationUID: string): Promise<string> => {
       const signer = await getSignerFromBrowser();
       const eas = getEASInstance(signer);
-      const schemaUID = CHAIN_CONFIG.sepolia.schemas.documentV2.uid;
+      const schemaUID = CHAIN_CONFIG.sepolia.schemas.documentV3.uid;
 
       const tx = await eas.revoke({
         schema: schemaUID,
@@ -22,6 +22,16 @@ export function useRevokeDocument() {
       });
 
       await tx.wait();
+
+      // Event-driven sync: sync the revocation state to Firestore
+      if (attestationUID.startsWith('0x')) {
+        try {
+          await fetch(`/api/sync/${attestationUID}`, { method: 'POST' });
+        } catch {
+          // best-effort
+        }
+      }
+
       return typeof tx === 'object' && 'hash' in tx
         ? String((tx as Record<string, unknown>).hash)
         : '';
@@ -30,6 +40,7 @@ export function useRevokeDocument() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['document'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
     },
   });
 }

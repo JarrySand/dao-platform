@@ -4,13 +4,11 @@ import { type HTMLAttributes, type ReactNode, useState } from 'react';
 import { cn } from '@/shared/utils/cn';
 
 const variantStyles = {
-  info: 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200',
+  info: 'border-skin-border bg-[var(--color-bg-tertiary)] text-skin-heading',
   success:
-    'border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200',
-  warning:
-    'border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-200',
-  error:
-    'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200',
+    'border-[var(--color-success)]/30 bg-[var(--color-success)]/5 text-[var(--color-success)]',
+  warning: 'border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400',
+  error: 'border-[var(--color-danger)]/30 bg-[var(--color-danger)]/5 text-[var(--color-danger)]',
 } as const;
 
 const icons: Record<keyof typeof variantStyles, ReactNode> = {
@@ -103,7 +101,7 @@ export function Alert({
     <div
       role="alert"
       className={cn(
-        'flex items-start gap-3 rounded-lg border p-4',
+        'flex items-start gap-3 rounded-xl border p-4',
         variantStyles[variant],
         className,
       )}
@@ -115,7 +113,7 @@ export function Alert({
         <button
           type="button"
           onClick={handleClose}
-          className="shrink-0 rounded-md p-0.5 opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current"
+          className="shrink-0 rounded-lg p-0.5 opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-current"
           aria-label="Close"
         >
           <svg

@@ -1,42 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  getCountFromServer,
+  query,
+  where,
+  collection,
+} from 'firebase/firestore';
 import { db } from '@/shared/lib/firebase/client';
 import type { FirebaseDAOData } from '@/shared/lib/firebase/types';
+import { firestoreToDAO } from '@/shared/lib/firebase/converters';
 import { setCorsHeaders } from '@/shared/lib/cors';
-import { verifyAuth } from '@/shared/lib/api-client';
-import { getDAOByUID } from '@/shared/lib/eas/queries';
-import { decodeDAOData } from '@/shared/lib/eas/schema';
+import { checkRateLimit } from '@/shared/lib/rate-limit';
+import { authenticateRequest, sanitizeErrorMessage, getClientIP } from '@/shared/lib/middleware';
+import { logger } from '@/shared/utils/logger';
 import type { ApiResponse, ApiErrorResponse } from '@/shared/types/api';
 import { HTTP_STATUS } from '@/shared/types/api';
 import { updateDAOSchema } from '@/features/dao/types';
 import type { DAO } from '@/features/dao/types';
-
-function buildDAO(
-  attestation: { id: string; attester: string; time: number; decodedDataJson: string },
-  firebaseData?: FirebaseDAOData | null,
-): DAO {
-  const decoded = decodeDAOData(attestation.decodedDataJson);
-
-  return {
-    id: attestation.id,
-    name: firebaseData?.name || decoded.daoName,
-    description: firebaseData?.description || decoded.daoDescription,
-    location: firebaseData?.location || decoded.daoLocation,
-    memberCount: firebaseData?.memberCount ?? decoded.memberCount,
-    size: firebaseData?.size || decoded.daoSize || 'small',
-    status: firebaseData?.status || 'active',
-    logoUrl: firebaseData?.logoUrl || '',
-    website: firebaseData?.website || '',
-    contactPerson: firebaseData?.contactPerson || '',
-    contactEmail: firebaseData?.contactEmail || '',
-    adminAddress: firebaseData?.adminAddress || attestation.attester,
-    attestationUID: attestation.id,
-    trustScore: 0,
-    foundingDate: attestation.time,
-    createdAt: firebaseData?.createdAt || new Date(attestation.time * 1000).toISOString(),
-    updatedAt: firebaseData?.updatedAt || new Date(attestation.time * 1000).toISOString(),
-  };
-}
 
 export async function GET(
   request: NextRequest,
@@ -45,30 +27,37 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const attestation = await getDAOByUID(id);
-    if (!attestation) {
+    const docRef = doc(db, 'daos', id);
+    const snapshot = await getDoc(docRef);
+
+    if (!snapshot.exists()) {
       const body: ApiErrorResponse = { success: false, error: 'DAO not found' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }));
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }), request);
     }
 
-    let firebaseData: FirebaseDAOData | null = null;
-    try {
-      const docRef = doc(db, 'daos', id);
-      const snapshot = await getDoc(docRef);
-      if (snapshot.exists()) {
-        firebaseData = snapshot.data() as FirebaseDAOData;
-      }
-    } catch {
-      // Firestore read is best-effort
-    }
+    const fb = snapshot.data() as FirebaseDAOData;
+    const dao = firestoreToDAO(id, fb);
 
-    const dao = buildDAO(attestation, firebaseData);
-    const body: ApiResponse<DAO> = { success: true, data: dao };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }));
+    // Enrich with documentCount
+    const countSnap = await getCountFromServer(
+      query(collection(db, 'documents'), where('daoId', '==', id)),
+    );
+    const enriched = { ...dao, documentCount: countSnap.data().count };
+
+    const body: ApiResponse<DAO> = { success: true, data: enriched };
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('dao_detail_failed', {
+      route: '/api/daos/[id]',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
@@ -77,19 +66,48 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
-    const { id } = await params;
-
-    const token = verifyAuth(request);
-    if (!token) {
-      const body: ApiErrorResponse = { success: false, error: 'Unauthorized' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }));
+    // Rate limit write operations
+    const ip = getClientIP(request);
+    if (!checkRateLimit(ip, 20, 60_000)) {
+      const body: ApiErrorResponse = { success: false, error: 'Too many requests' };
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.TOO_MANY_REQUESTS }),
+        request,
+      );
     }
 
-    // Verify DAO exists on-chain
-    const attestation = await getDAOByUID(id);
-    if (!attestation) {
+    // Authenticate wallet
+    const auth = authenticateRequest(request);
+    if (!auth) {
+      const body: ApiErrorResponse = {
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      };
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNAUTHORIZED }), request);
+    }
+
+    const { id } = await params;
+
+    // Verify DAO exists in Firestore
+    const docRef = doc(db, 'daos', id);
+    const snapshot = await getDoc(docRef);
+
+    if (!snapshot.exists()) {
       const body: ApiErrorResponse = { success: false, error: 'DAO not found' };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }));
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.NOT_FOUND }), request);
+    }
+
+    // Verify the authenticated user is the admin (EAS attester is the source of truth)
+    const existingDAO = snapshot.data() as FirebaseDAOData;
+    const ownerAddress = existingDAO.attester || existingDAO.adminAddress;
+    if (!ownerAddress || ownerAddress.toLowerCase() !== auth.address.toLowerCase()) {
+      const body: ApiErrorResponse = {
+        success: false,
+        error: 'Only the DAO admin can update this DAO',
+        code: 'FORBIDDEN',
+      };
+      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.FORBIDDEN }), request);
     }
 
     // Validate request body
@@ -109,36 +127,39 @@ export async function PUT(
         code: 'VALIDATION_ERROR',
         details,
       };
-      return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.UNPROCESSABLE_ENTITY }));
+      return setCorsHeaders(
+        NextResponse.json(body, { status: HTTP_STATUS.UNPROCESSABLE_ENTITY }),
+        request,
+      );
     }
 
     const now = new Date().toISOString();
     const updateData = { ...parsed.data, updatedAt: now };
 
-    const docRef = doc(db, 'daos', id);
     await updateDoc(docRef, updateData);
 
     // Re-read and return the updated DAO
-    let updatedFirebaseData: FirebaseDAOData | null = null;
-    try {
-      const updatedSnap = await getDoc(docRef);
-      if (updatedSnap.exists()) {
-        updatedFirebaseData = updatedSnap.data() as FirebaseDAOData;
-      }
-    } catch {
-      // best-effort
-    }
+    const updatedSnap = await getDoc(docRef);
+    const fb = updatedSnap.data() as FirebaseDAOData;
+    const dao = firestoreToDAO(id, fb);
 
-    const dao = buildDAO(attestation, updatedFirebaseData);
     const body: ApiResponse<DAO> = { success: true, data: dao };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }));
+    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.OK }), request);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const body: ApiErrorResponse = { success: false, error: message };
-    return setCorsHeaders(NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }));
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('dao_update_failed', {
+      route: '/api/daos/[id]',
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    const body: ApiErrorResponse = { success: false, error: sanitizeErrorMessage(error) };
+    return setCorsHeaders(
+      NextResponse.json(body, { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }),
+      request,
+    );
   }
 }
 
-export async function OPTIONS(): Promise<NextResponse> {
-  return setCorsHeaders(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(request: NextRequest): Promise<NextResponse> {
+  return setCorsHeaders(new NextResponse(null, { status: 204 }), request);
 }

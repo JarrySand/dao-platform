@@ -52,7 +52,7 @@
 - **ファイル**: `src/app/login/page.tsx`
 - **機能**: メール/パスワード入力フォーム + ウォレットログイン。パスワードリセットリンク
 - **認証フロー**: AuthContext の `login()` → localStorage 保存 → `/my-dao` リダイレクト
-- **v2方針**: 改善 — Firebase Auth に移行、認証基盤刷新
+- **v2方針**: **廃止** — ウォレット接続のみに移行。ログインページは不要（AuthGuard がインラインでウォレット接続を促進）
 
 ### 1.7 サインアップ (`/signup`)
 
@@ -63,13 +63,13 @@
   - 管理者アドレス（ウォレットから自動入力、読み取り専用）
   - 説明、所在地、初期メンバー数、ロゴURL（Firebaseに保存）
 - **作成フロー**: `DAOService.createEASAttestation()` → `DAOService.saveDAOMetadata()` → `/my-dao/{uid}` リダイレクト
-- **v2方針**: 改善 — ウィザード形式、バリデーション強化
+- **v2方針**: **廃止** — DAO 作成は `/my-dao/create` ウィザードに移行。サインアップページは不要
 
 ### 1.8 パスワードリセット (`/reset-password`)
 
 - **ファイル**: `src/app/reset-password/page.tsx`
 - **機能**: パスワード再設定フォーム
-- **v2方針**: 再実装（Firebase Auth 連携）
+- **v2方針**: **廃止** — ウォレット認証にはパスワードリセット不要
 
 ---
 
@@ -231,7 +231,7 @@
 - **状態**: user, isLoading, isAuthenticated
 - **メソッド**: login, loginWithWallet, logout, signup
 - **問題**: localStorage 依存、セッション管理なし、デモ認証含む
-- **v2方針**: 廃止 → Firebase Auth + Zustand ストアに置換
+- **v2方針**: 廃止 → ウォレット接続（Zustand walletStore）に置換
 
 ### 6.2 EasContext (`src/contexts/EasContext.tsx`)
 
@@ -331,7 +331,7 @@ interface User {
 - AuthContext が `localStorage.setItem('user', JSON.stringify(user))` でセッション管理
 - XSS脆弱性のリスク
 - セッション有効期限なし
-- **v2解決策**: Firebase Authentication の利用、サーバーサイドセッション
+- **v2解決策**: MetaMask ウォレット接続のみに移行（Zustand walletStore で状態管理）
 
 ### 8.2 EASデータパースの複雑さ（影響度: 高）
 
@@ -367,10 +367,13 @@ interface User {
 
 ## 9. 廃止予定の機能
 
-| 対象                             | 理由                                |
-| -------------------------------- | ----------------------------------- |
-| SchemaManager コンポーネント     | 開発・デバッグ用、本番不要          |
-| `api/debug-firebase` API         | デバッグ用、本番不要                |
-| AuthContext の localStorage認証  | Firebase Auth に置換                |
-| EasContext                       | walletStore + shared/lib/eas に分離 |
-| デモ認証（ハードコード資格情報） | Firebase Auth に統一                |
+| 対象                                          | 理由                                     |
+| --------------------------------------------- | ---------------------------------------- |
+| SchemaManager コンポーネント                  | 開発・デバッグ用、本番不要               |
+| `api/debug-firebase` API                      | デバッグ用、本番不要                     |
+| AuthContext の localStorage認証               | ウォレット接続（walletStore）に置換      |
+| EasContext                                    | walletStore + shared/lib/eas に分離      |
+| デモ認証（ハードコード資格情報）              | 廃止（ウォレット認証に統一）             |
+| Firebase Auth（メール/パスワード）            | 廃止（ウォレット接続のみに移行）         |
+| LoginForm / SignupForm / ResetPasswordForm    | 廃止（ウォレット接続で代替）             |
+| `/login`, `/signup`, `/reset-password` ページ | 廃止（AuthGuard がインラインで接続促進） |

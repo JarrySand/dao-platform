@@ -8,16 +8,12 @@
 
 ### 1.1 認証・ウォレット
 
-#### FR-AUTH-01: メール/パスワード認証
+#### FR-AUTH-01: ウォレット接続認証
 
-- Firebase Authentication を利用したメール/パスワードログイン
-- サインアップ時のメール確認
-- パスワードリセットフロー:
-  - メールアドレス入力 → Firebase `sendPasswordResetEmail` → リセットメール送信
-  - メール内リンクからリセットフォームへ遷移
-  - 新パスワード入力 → Firebase `confirmPasswordReset` → 完了
-  - リセットリンク有効期限: Firebase デフォルト（1時間）
-- v1との違い: localStorage → Firebase Auth に移行
+- MetaMask ウォレット接続を唯一の認証手段とする
+- ウォレットアドレスがユーザーの一意な識別子
+- 接続状態の永続化（Zustand + localStorage）
+- v1との違い: localStorage 独自認証 → ウォレット接続に移行（Firebase Auth は不使用）
 
 #### FR-AUTH-02: ウォレット接続
 
@@ -34,9 +30,8 @@
 
 #### FR-AUTH-04: 認証ガード
 
-- 保護ルートへの未認証アクセス時にログインページへリダイレクト
-- 認証状態のローディング表示
-- ウォレット未接続状態の案内UI
+- 保護ルートへのウォレット未接続アクセス時に「ウォレットを接続してください」UIをインライン表示
+- ウォレット接続ボタンを表示し、接続後に自動的にコンテンツを表示
 
 ---
 
@@ -118,18 +113,18 @@
 
 - 入力項目:
   - ドキュメントタイトル（必須）
-  - ドキュメントタイプ（articles/meeting/token/operation/voting/other）— **EAS v2 スキーマにオンチェーン保存**
-  - バージョン（任意）
-  - ファイル（必須、10MB上限、PDF/DOC/DOCX/TXT/JSON）
-  - 前バージョンUID（任意、バージョン管理用）
+  - ドキュメントタイプ（articles/assembly_rules/operation_rules/token_rules/custom_rules/proposal/minutes）— **EAS v3 スキーマにオンチェーン保存**
+  - ファイル（必須、10MB上限、PDF のみ）
+  - 前バージョンUID（規程類は自動設定、その他は常に 0x0）
+- バージョン番号はフォームから削除。`previousVersionId` チェーンの深さから自動導出（Firebase キャッシュに保持）
 - 登録フロー:
   1. SHA-256 ハッシュ計算
   2. IPFS アップロード
-  3. EAS アテステーション作成（Document v2 スキーマ）
-  4. Firebase キャッシュ保存（任意、クエリ高速化用）
+  3. EAS アテステーション作成（Document v3 スキーマ — `version` フィールドなし）
+  4. Firebase 同期（`/api/sync/:uid`、ベストエフォート）
 - documentType はオンチェーンに固定される（v1 のタイトル推測方式を廃止）
+- カテゴリ体系は [document-categories.md](./document-categories.md) に準拠
 - 各ステップの進捗表示（0-100%）
-- Gas 見積もり表示
 
 #### FR-DOC-02: ドキュメント一覧
 
@@ -169,7 +164,7 @@
 #### FR-UI-01: ナビゲーション
 
 - メインナビゲーションバー
-- ユーザー状態表示（ログイン/未ログイン）
+- ウォレット接続状態表示
 - ウォレット接続状態表示
 - レスポンシブ対応（モバイルハンバーガーメニュー）
 
@@ -249,50 +244,49 @@
 
 ---
 
-### 2.3 投票ドキュメント管理 [P0 — Alpha必須]
+### 2.3 投票議題管理 [P0 — Alpha必須]
 
-#### FR-VDOC-01: 投票ドキュメント登録
+#### FR-VDOC-01: 投票議題登録
 
-- 投票に関連するドキュメント（議案書、投票結果、議事録等）のアップロード
-- 通常のドキュメント登録フロー（ハッシュ計算→IPFS→EASアテステーション）に加え、以下のトランザクション情報を **EAS v2 スキーマでオンチェーンに保存**:
+- 投票に関連する議案書のアップロード
+- 通常のドキュメント登録フロー（ハッシュ計算→IPFS→EASアテステーション）に加え、以下のトランザクション情報を **EAS v3 スキーマでオンチェーンに保存**:
   - votingTxHash（bytes32、必須）— 投票トランザクションハッシュ
   - votingChainId（uint256、必須）— 投票が実行されたチェーンID
-- ドキュメントタイプ `voting` を EAS アテステーションの documentType フィールドに記録
+- ドキュメントタイプ `proposal` を EAS アテステーションの documentType フィールドに記録
 - votingContract, proposalId は txHash + chainId からオンチェーンで追跡可能なため、スキーマには含めない
 - ※ 投票 TX リンクはすべてオンチェーンに固定される（オンチェーンアンカリング原則、architecture.md §0.1）
-- **UIフロー**: 通常の DocumentRegisterForm で documentType に `voting` を選択すると、votingTxHash / votingChainId の入力フィールドが条件表示される（独立した専用フォームではなく、同一フォームの条件分岐として実装）
+- **UIフロー**: 通常の DocumentRegisterForm で documentType に `proposal` を選択すると、votingTxHash / votingChainId の入力フィールドが条件表示される（独立した専用フォームではなく、同一フォームの条件分岐として実装）
 
 #### FR-VDOC-02: トランザクション情報表示
 
-- 投票ドキュメントの詳細画面でリンク済みトランザクション情報を表示
+- 投票議題の詳細画面でリンク済みトランザクション情報を表示
 - トランザクションハッシュから Etherscan（またはブロックエクスプローラー）へのリンク生成
 - ブロック番号・タイムスタンプの表示（オンチェーンから取得可能な場合）
 - トランザクションの存在・有効性の簡易検証
 
-#### FR-VDOC-03: 投票ドキュメント一覧・フィルター
+#### FR-VDOC-03: 投票議題一覧・フィルター
 
-- DAO のドキュメント一覧でドキュメントタイプ `voting` によるフィルタリング
+- DAO のドキュメント一覧でドキュメントタイプ `proposal` によるフィルタリング
 - トランザクションハッシュによる検索
-- 投票ドキュメント専用のカード表示（トランザクション情報のサマリー付き）
+- 投票議題専用のカード表示（トランザクション情報のサマリー付き）
 
 ---
 
 ### 2.4 EAS スキーマ・後方互換 [P0 — Alpha必須]
 
-#### FR-SCHEMA-01: Document v2 スキーマデプロイ
+#### FR-SCHEMA-01: Document v3 スキーマデプロイ [完了]
 
-- Sepolia テストネットに Document v2 スキーマを新規登録
-- スキーマ定義: `bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, string version, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId`
-- v1 スキーマとの主な差分: documentType, votingTxHash, votingChainId の追加
-- デプロイ後のスキーマ UID を `config/chains.ts` に設定
+- Sepolia テストネットに Document v3 スキーマをデプロイ済み
+- スキーマ定義: `bytes32 daoAttestationUID, string documentTitle, string documentType, bytes32 documentHash, string ipfsCid, bytes32 previousVersionId, bytes32 votingTxHash, uint256 votingChainId`
+- v2 からの差分: `version` (string) フィールドを削除（`previousVersionId` チェーンから導出する方式に変更）
+- カテゴリ ID を合同会社型 DAO 準拠の体系に変更（[document-categories.md](./document-categories.md) 参照）
+- スキーマ UID: `0xc1c9b4dc5dedd27304df8b5d564f618a32ec007daebb4022a6059f31e393f51a`（`config/chains.ts` に設定済み）
 
-#### FR-COMPAT-01: v1 アテステーション後方互換読み取り
+#### FR-COMPAT-01: v1/v2 アテステーション後方互換
 
-- v1 Document スキーマ UID でのアテステーション検索・表示
-- v1 アテステーションの documentType は `"unknown"` として表示
-- v1 アテステーションの votingTxHash は「なし」として表示
-- v1/v2 のフィールド名差異を変換レイヤーで吸収（shared/lib/eas/schema.ts）
-- DAO 詳細ページでは v1 + v2 両方のドキュメントを統合表示
+- 現在の実装では v1/v2 はスコープ外（テストデータのみのためマイグレーション不要）
+- v3 スキーマのみをクエリ対象としている
+- 将来的に v1/v2 後方互換が必要になった場合は、GraphQL エイリアスで複数スキーマを同時クエリする方式で対応可能
 
 ---
 
@@ -366,14 +360,14 @@
 
 ### 3.3 セキュリティ
 
-| 要件               | 詳細                                         |
-| ------------------ | -------------------------------------------- |
-| 認証               | Firebase Auth によるサーバーサイドセッション |
-| API バリデーション | 全APIルートで Zod スキーマバリデーション     |
-| 環境変数           | サーバーサイドのみ、クライアント非露出       |
-| CORS               | 適切な Origin 制限                           |
-| CSP                | Content Security Policy ヘッダー設定         |
-| 依存関係           | `npm audit` で高以上の脆弱性ゼロ             |
+| 要件               | 詳細                                           |
+| ------------------ | ---------------------------------------------- |
+| 認証               | ウォレット接続による認証（クライアントサイド） |
+| API バリデーション | 全APIルートで Zod スキーマバリデーション       |
+| 環境変数           | サーバーサイドのみ、クライアント非露出         |
+| CORS               | 適切な Origin 制限                             |
+| CSP                | Content Security Policy ヘッダー設定           |
+| 依存関係           | `npm audit` で高以上の脆弱性ゼロ               |
 
 ### 3.4 アクセシビリティ
 
@@ -421,18 +415,18 @@
 
 ### 含む（v0.2.0-alpha）
 
-| カテゴリ         | 機能                                          |
-| ---------------- | --------------------------------------------- |
-| 認証             | メール/パスワード + ウォレット接続            |
-| DAO管理          | CRUD全操作                                    |
-| ドキュメント管理 | 登録・一覧・検証・失効                        |
-| バージョン管理   | バージョン履歴UI [NEW]                        |
-| 投票ドキュメント | TX紐付きドキュメント管理 [NEW]                |
-| ダッシュボード   | 基本統計・アクティビティ [NEW]                |
-| EASスキーマ      | Document v2 スキーマデプロイ + 後方互換 [NEW] |
-| UI/UX            | レスポンシブ、ダークモード                    |
-| 品質             | テスト80%+、CI/CD                             |
-| ドキュメント     | OSS公開用ドキュメント一式                     |
+| カテゴリ         | 機能                                   |
+| ---------------- | -------------------------------------- |
+| 認証             | ウォレット接続のみ                     |
+| DAO管理          | CRUD全操作                             |
+| ドキュメント管理 | 登録・一覧・検証・失効                 |
+| バージョン管理   | バージョン履歴UI [NEW]                 |
+| 投票議題         | TX紐付き議案書管理 [NEW]               |
+| ダッシュボード   | 基本統計・アクティビティ [NEW]         |
+| EASスキーマ      | Document v3 スキーマデプロイ済み [NEW] |
+| UI/UX            | レスポンシブ、ダークモード             |
+| 品質             | テスト80%+、CI/CD                      |
+| ドキュメント     | OSS公開用ドキュメント一式              |
 
 ### 含まない（Post-Alpha）
 

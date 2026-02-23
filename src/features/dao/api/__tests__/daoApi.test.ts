@@ -1,20 +1,26 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fetchDAOs, fetchDAO, createDAO, updateDAO, deactivateDAO } from '../daoApi';
-import { mockDAO, mockDAO2 } from '@/test/handlers';
+import { mockDAO } from '@/test/handlers';
+import { useWalletStore } from '@/features/wallet/stores/walletStore';
 
-// Mock the firebase auth module used by api-client
-vi.mock('@/shared/lib/firebase/auth', () => ({
-  getIdToken: vi.fn().mockResolvedValue('mock-token'),
-}));
+vi.mock('@/shared/lib/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    createWalletAuthHeader: vi.fn().mockResolvedValue('Wallet mock-auth-header'),
+  };
+});
 
 describe('daoApi', () => {
+  beforeEach(() => {
+    useWalletStore.setState({ address: '0x' + 'aa'.repeat(20) });
+  });
+
   describe('fetchDAOs', () => {
     it('fetches a paginated list of DAOs', async () => {
       const result = await fetchDAOs();
 
       expect(result).toBeDefined();
-      // apiClient throws on non-ok responses, so if we get here, it succeeded
-      // The result is ApiResult<PaginatedResponse<DAO>> parsed from JSON
       const typed = result as { success: true; data: { data: unknown[]; total: number } };
       expect(typed.success).toBe(true);
       expect(typed.data.data).toHaveLength(2);
