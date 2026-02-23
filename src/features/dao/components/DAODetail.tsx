@@ -1,18 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useDAO } from '../hooks/useDAO';
 import { useDocuments } from '@/features/document/hooks/useDocuments';
 import { DocumentCard } from '@/features/document/components/DocumentCard';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@/shared/components/ui';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Badge,
+  Button,
+  Alert,
+} from '@/shared/components/ui';
 import { Skeleton } from '@/shared/components/ui';
 import { ErrorDisplay, EmptyState } from '@/shared/components/feedback';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
-import { formatDate, formatRelativeTime } from '@/shared/utils/format';
+import { formatDate, formatRelativeTime, formatFileSize } from '@/shared/utils/format';
 import { ExplorerLink } from '@/shared/components/ExplorerLink';
 import { cn } from '@/shared/utils/cn';
 import { DocumentPlusIcon, DocumentMinusIcon } from '@/shared/components/icons';
 import { getIPFSUrl } from '@/shared/lib/ipfs/gateway';
+import { calculateFileHash } from '@/shared/utils/fileHash';
 import type { Document, DocumentType } from '@/features/document/types';
 import { isRegulationType } from '@/features/document/types';
 
@@ -63,6 +72,133 @@ function ChevronIcon({ open, className }: { open: boolean; className?: string })
   );
 }
 
+/* ── Normalize hash for comparison (strip 0x prefix, lowercase) ── */
+function normalizeHash(hash: string): string {
+  return hash.replace(/^0x/i, '').toLowerCase();
+}
+
+/* ── Inline file verification widget ── */
+function InlineFileVerify({ expectedHash }: { expectedHash: string }) {
+  const [verifyResult, setVerifyResult] = useState<'idle' | 'hashing' | 'match' | 'mismatch'>(
+    'idle',
+  );
+  const [fileName, setFileName] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      setFileName(file.name);
+      setVerifyResult('hashing');
+      try {
+        const hash = await calculateFileHash(file);
+        const isMatch = normalizeHash(hash) === normalizeHash(expectedHash);
+        setVerifyResult(isMatch ? 'match' : 'mismatch');
+      } catch {
+        setVerifyResult('mismatch');
+      }
+    },
+    [expectedHash],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const handleReset = useCallback(() => {
+    setVerifyResult('idle');
+    setFileName(null);
+    if (inputRef.current) inputRef.current.value = '';
+  }, []);
+
+  if (verifyResult === 'match') {
+    return (
+      <Alert variant="success">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium">ハッシュ一致 — ファイルは改ざんされていません</span>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="shrink-0 text-xs underline opacity-70 hover:opacity-100"
+          >
+            再検証
+          </button>
+        </div>
+        {fileName && <p className="mt-1 truncate text-xs opacity-70">{fileName}</p>}
+      </Alert>
+    );
+  }
+
+  if (verifyResult === 'mismatch') {
+    return (
+      <Alert variant="error">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium">ハッシュ不一致 — 内容が異なります</span>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="shrink-0 text-xs underline opacity-70 hover:opacity-100"
+          >
+            再検証
+          </button>
+        </div>
+        {fileName && <p className="mt-1 truncate text-xs opacity-70">{fileName}</p>}
+      </Alert>
+    );
+  }
+
+  if (verifyResult === 'hashing') {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-dashed border-skin-border p-3 text-xs text-[var(--color-text-secondary)]">
+        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+        ハッシュ計算中...
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onDrop={handleDrop}
+      onDragOver={(e) => e.preventDefault()}
+      onClick={() => inputRef.current?.click()}
+      className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-skin-border p-3 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-hover)] hover:bg-[var(--color-bg-hover)]"
+    >
+      <svg
+        className="h-4 w-4"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={1.5}
+        stroke="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15m0-3l-3-3m0 0l-3 3m3-3v11.25"
+        />
+      </svg>
+      ファイルをドロップして検証
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFile(file);
+        }}
+      />
+    </div>
+  );
+}
+
 /* ── Compact regulation row with toggle for details ── */
 function RegulationRow({ document: doc }: { document: Document }) {
   const [open, setOpen] = useState(false);
@@ -86,7 +222,8 @@ function RegulationRow({ document: doc }: { document: Document }) {
       </button>
 
       {open && (
-        <div className="px-2 pb-3 pt-1">
+        <div className="px-2 pb-3 pt-1 space-y-3">
+          {/* Basic info */}
           <div className="space-y-1 text-xs text-[var(--color-text-secondary)]">
             <p>種別: {typeLabels[doc.documentType]}</p>
             <p>
@@ -99,15 +236,53 @@ function RegulationRow({ document: doc }: { document: Document }) {
             </p>
             <p>登録日: {formatDate(doc.createdAt)}</p>
           </div>
-          <div className="mt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open(getIPFSUrl(doc.ipfsCid), '_blank', 'noopener,noreferrer')}
-            >
-              ダウンロード
-            </Button>
+
+          {/* On-chain verification */}
+          <div className="rounded-lg bg-[var(--color-bg-hover)] p-2.5 space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <svg
+                className="h-3.5 w-3.5 text-[var(--color-success)]"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="text-xs font-medium text-[var(--color-success)]">
+                オンチェーン検証済み
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+              <span className="shrink-0">EAS:</span>
+              <ExplorerLink
+                type="attestation"
+                value={doc.id}
+                chars={6}
+                className="font-mono text-xs text-[var(--color-text-secondary)] hover:underline"
+              />
+            </div>
+            {doc.hash && (
+              <p className="truncate font-mono text-[10px] text-[var(--color-text-tertiary)]">
+                SHA-256: {doc.hash}
+              </p>
+            )}
           </div>
+
+          {/* Inline file verification */}
+          {doc.hash && <InlineFileVerify expectedHash={doc.hash} />}
+
+          {/* Download */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(getIPFSUrl(doc.ipfsCid), '_blank', 'noopener,noreferrer')}
+          >
+            ダウンロード
+          </Button>
         </div>
       )}
     </div>
